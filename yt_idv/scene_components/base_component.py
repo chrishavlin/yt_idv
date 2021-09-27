@@ -260,3 +260,15 @@ class SceneComponent(traitlets.HasTraits):
 
     def draw(self, scene, program):
         raise NotImplementedError
+
+    def write_shaders(self):
+        for p in ["program1", "program2"]:
+            if hasattr(self, p):
+                program = getattr(self, p)
+                for shtype in ["fragment", "vertex"]:
+                    fshtype = shtype + "_shader"
+                    if hasattr(program, fshtype):
+                        shader = getattr(program, fshtype)
+                        save_name = "_".join([self.name, p, fshtype])+".glsl"
+                        with open(save_name, "w") as fi:
+                            fi.write(shader.shader_source)

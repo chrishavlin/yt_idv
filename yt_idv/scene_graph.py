@@ -261,3 +261,7 @@ class SceneGraph(traitlets.HasTraits):
         if field is not None:
             scene.add_volume(data_source, field, no_ghost=no_ghost)
         return scene
+
+    def save_compiled_shaders(self):
+        for element in self:
+            element.write_shaders()

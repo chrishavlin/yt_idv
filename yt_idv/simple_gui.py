@@ -56,6 +56,9 @@ class SimpleGUI:
                         self.snapshot_format.format(count=self.snapshot_count),
                     )
                     self.snapshot_count += 1
+                if imgui.button("Save Compiled Shader"):
+                    scene.render()
+                    scene.save_compiled_shaders()
                 imgui.tree_pop()
             _ = self.render_camera(scene)
             changed = changed or _

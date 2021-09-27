@@ -269,6 +269,6 @@ class SceneComponent(traitlets.HasTraits):
                     fshtype = shtype + "_shader"
                     if hasattr(program, fshtype):
                         shader = getattr(program, fshtype)
-                        save_name = "_".join([self.name, p, fshtype])+".glsl"
+                        save_name = "_".join([self.name, p, fshtype]) + ".glsl"
                         with open(save_name, "w") as fi:
                             fi.write(shader.shader_source)

@@ -31,6 +31,11 @@ class SimpleGUI:
         data = (data[:, :, :4] * 255).astype("u1")
         self.colormap = Texture2D(data=data, boundary_x="clamp", boundary_y="clamp")
 
+    def _write_snapshot(self, image):
+        # writes out an image snapshot, increments the snapshot count
+        write_image(image, self.snapshot_format.format(count=self.snapshot_count))
+        self.snapshot_count += 1
+
     def render(self, scene):
         imgui.new_frame()
         changed = False
@@ -40,22 +45,12 @@ class SimpleGUI:
             imgui.text("Filename Template:")
             _, self.snapshot_format = imgui.input_text("", self.snapshot_format, 256)
             if imgui.button("Save Snapshot"):
-                # Call render again, since we're in the middle of overlaying
-                # some stuff and we want a clean scene snapshot
                 scene.render()
-                write_bitmap(
-                    scene.image[:, :, :3],
-                    self.snapshot_format.format(count=self.snapshot_count),
-                )
-                self.snapshot_count += 1
+                self._write_snapshot(scene.image[:, :, :3])
             if imgui.tree_node("Debug"):
                 if imgui.button("Save Depth"):
                     scene.render()
-                    write_image(
-                        scene.depth,
-                        self.snapshot_format.format(count=self.snapshot_count),
-                    )
-                    self.snapshot_count += 1
+                    self._write_snapshot(scene.depth)
                 imgui.tree_pop()
             _ = self.render_camera(scene)
             changed = changed or _

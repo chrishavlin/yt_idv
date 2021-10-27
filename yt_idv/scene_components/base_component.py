@@ -27,7 +27,6 @@ class SceneComponent(traitlets.HasTraits):
     priority = traitlets.CInt(0)
     visible = traitlets.Bool(True)
     use_db = traitlets.Bool(False)  # use depth buffer
-    last_use_db = traitlets.Bool(False)
     display_bounds = traitlets.Tuple(
         traitlets.CFloat(),
         traitlets.CFloat(),
@@ -50,11 +49,12 @@ class SceneComponent(traitlets.HasTraits):
     _program1_invalid = True
     _program2_invalid = True
 
-    # These attributes are
+    # These attributes are colormap related
     cmap_min = traitlets.CFloat(None, allow_none=True)
     cmap_max = traitlets.CFloat(None, allow_none=True)
     cmap_log = traitlets.Bool(True)
     scale = traitlets.CFloat(1.0)
+    _cmap_bounds_invalid = True
 
     @traitlets.observe("display_bounds")
     def _change_display_bounds(self, change):
@@ -86,6 +86,7 @@ class SceneComponent(traitlets.HasTraits):
                 if s:
                     s.delete_shader()
             self._program1_invalid = self._program2_invalid = True
+            self._cmap_bounds_invalid = True
             changed = True
         _, cmap_index = imgui.listbox(
             "Colormap", _cmaps.index(self.colormap.colormap_name), _cmaps
@@ -96,7 +97,7 @@ class SceneComponent(traitlets.HasTraits):
         _, self.cmap_log = imgui.checkbox("Take log", self.cmap_log)
         changed = changed or _
         if imgui.button("Reset Colorbounds"):
-            self.cmap_min = self.cmap_max = None
+            self._cmap_bounds_invalid = True
             changed = True
 
         return changed
@@ -114,10 +115,15 @@ class SceneComponent(traitlets.HasTraits):
             self.geometry_shader = new_combo.get("first_geometry", None)
             self.colormap_vertex = new_combo["second_vertex"]
             self.colormap_fragment = new_combo["second_fragment"]
+        self._cmap_bounds_invalid = True
 
     @traitlets.default("fb")
     def _fb_default(self):
         return Framebuffer()
+
+    @traitlets.observe("use_db")
+    def _use_depth_buffer(self, change):
+        self._cmap_bounds_invalid = True
 
     @traitlets.observe("fragment_shader")
     def _change_fragment(self, change):
@@ -181,29 +187,45 @@ class SceneComponent(traitlets.HasTraits):
         )
         return bq
 
+    def _set_new_program(self, program_name: str, shader_program: ShaderProgram):
+        program = getattr(self, program_name, None)
+        if program is not None:
+            program.delete_program()
+        setattr(self, program_name, shader_program)
+        setattr(self, f"{program_name}_invalid", False)
+
     @property
     def program1(self):
         if self._program1_invalid:
-            if self._program1 is not None:
-                self._program1.delete_program()
-            self._fragment_shader_default()
-            self._program1 = ShaderProgram(
+            sp = ShaderProgram(
                 self.vertex_shader, self.fragment_shader, self.geometry_shader
             )
-            self._program1_invalid = False
+            self._set_new_program('_program1', sp)
         return self._program1
 
     @property
     def program2(self):
         if self._program2_invalid:
-            if self._program2 is not None:
-                self._program2.delete_program()
-            # The vertex shader will always be the same.
-            # The fragment shader will change based on whether we are
-            # colormapping or not.
-            self._program2 = ShaderProgram(self.colormap_vertex, self.colormap_fragment)
-            self._program2_invalid = False
+            # The vertex shader will always be the same, the fragment shader
+            # will change based on whether we are colormapping or not.
+            sp = ShaderProgram(self.colormap_vertex, self.colormap_fragment)
+            self._set_new_program("_program2", sp)
         return self._program2
+
+    def _reset_cmap_bounds(self):
+        data = self.fb.data
+        if self.use_db:
+            data[:, :, :3] = self.fb.depth_data[:, :, None]
+        data = data[data[:, :, 3] > 0][:, 0]
+        if data.size > 0:
+            self.cmap_min = data.min()
+            self.cmap_max = data.max()
+        if data.size == 0:
+            self.cmap_min = 0.0
+            self.cmap_max = 1.0
+        else:
+            print(f"Computed new cmap values {self.cmap_min} - {self.cmap_max}")
+        self._cmap_bounds_invalid = False
 
     def run_program(self, scene):
         # Store this info, because we need to render into a framebuffer that is the
@@ -218,27 +240,12 @@ class SceneComponent(traitlets.HasTraits):
                 self._set_uniforms(scene, p)
                 with self.data.vertex_array.bind(p):
                     self.draw(scene, p)
-        if (
-            self.cmap_min is None
-            or self.cmap_max is None
-            or self.last_use_db != self.use_db
-        ):
-            self.last_use_db = self.use_db
-            data = self.fb.data
-            if self.use_db:
-                data[:, :, :3] = self.fb.depth_data[:, :, None]
-            data = data[data[:, :, 3] > 0][:, 0]
-            if data.size > 0:
-                self.cmap_min = cmap_min = data.min()
-                self.cmap_max = cmap_max = data.max()
-            if data.size == 0:
-                cmap_min = 0.0
-                cmap_max = 1.0
-            else:
-                print(f"Computed new cmap values {cmap_min} - {cmap_max}")
-        else:
-            cmap_min = float(self.cmap_min)
-            cmap_max = float(self.cmap_max)
+
+        if self._cmap_bounds_invalid:
+            self._reset_cmap_bounds()
+        cmap_min = float(self.cmap_min)
+        cmap_max = float(self.cmap_max)
+
         with self.colormap.bind(0):
             with self.fb.input_bind(1, 2):
                 with self.program2.enable() as p2:

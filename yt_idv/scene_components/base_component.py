@@ -241,8 +241,44 @@ class SceneComponent(traitlets.HasTraits):
                 p._set_uniform("iso_log", bool(self.cmap_log))
                 p._set_uniform("iso_min", float(self.data.min_val))
                 p._set_uniform("iso_max", float(self.data.max_val))
+                p._set_uniform("p1_second_pass", False)
                 with self.data.vertex_array.bind(p):
                     self.draw(scene, p)
+
+        # frame buffer will be populated with the data value
+        # along rays at this point for most shaders
+
+        # what happens if we do a second pass with the same program??
+        # with self.fb.bind(True):
+        with self.fb.input_bind(3, 4): # but now we want to "pass" in textures from previous program
+            with self.program1.enable() as p:
+                scene.camera._set_uniforms(scene, p)
+                self._set_uniforms(scene, p)
+                p._set_uniform("iso_tolerance", float(self.iso_tolerance))
+                p._set_uniform("iso_num_layers", int(len(self.iso_layers)))
+                v = np.zeros(32, dtype="float32")
+                v[: len(self.iso_layers)] = self._get_sanitized_iso_layers()
+                p._set_uniform("iso_layers", v)
+                p._set_uniform("iso_log", bool(self.cmap_log))
+                p._set_uniform("iso_min", float(self.data.min_val))
+                p._set_uniform("iso_max", float(self.data.max_val))
+                p._set_uniform("p1_second_pass", True)
+                p._set_uniform("fb_tex", 3)
+                p._set_uniform("db_tex", 4)
+                with self.base_quad.vertex_array.bind(p): # and bind vertexPosition_modelspace
+                    with self.data.vertex_array.bind(p):
+                        self.draw(scene, p)
+                        # for blocks, draw does
+                        # each = self.data.vertex_array.each
+                        # GL.glEnable(GL.GL_CULL_FACE)
+                        # GL.glCullFace(GL.GL_BACK)
+                        # with self.transfer_function.bind(target=2):
+                        #     for tex_ind, tex, bitmap_tex in self.data.viewpoint_iter(
+                        #         scene.camera):
+                        #         with tex.bind(target=0):
+                        #             with bitmap_tex.bind(target=1):
+                        #                 GL.glDrawArrays(GL.GL_POINTS,
+                        #                                 tex_ind * each, each)
 
         if self._cmap_bounds_invalid:
             self._reset_cmap_bounds()
@@ -261,6 +297,8 @@ class SceneComponent(traitlets.HasTraits):
                         p2._set_uniform("cmap_max", self.cmap_max)
                         p2._set_uniform("cmap_log", float(self.cmap_log))
                         with self.base_quad.vertex_array.bind(p2):
+                            # base_quad binds vertexPosition_modelspace! which
+                            # is what passthrough.vert.glsl expects as input.
                             # Now we do our viewport globally, not just within
                             # the framebuffer
                             GL.glViewport(x0, y0, w, h)

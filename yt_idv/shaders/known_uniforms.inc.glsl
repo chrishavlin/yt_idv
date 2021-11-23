@@ -57,3 +57,6 @@ uniform float iso_layers[32];
 uniform bool iso_log;
 uniform float iso_min;
 uniform float iso_max;
+
+// for second pass flag
+uniform bool p1_second_pass;

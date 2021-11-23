@@ -83,6 +83,11 @@ class BlockCollection(SceneData):
         le = np.array(le, dtype="f4")
         re = np.array(re, dtype="f4")
 
+        # when we call vertex_array.bind() in base_component.run_program
+        # these attributes will bind to the GPU, making them available
+        # in the rendering pipeline (e.g., grid_position.vert.glsl has
+        # input variables model_vertex, in_dx, in_left_edge, in_right_edge)
+        # corresponding to each of the following vertex attributes.
         self.vertex_array.attributes.append(
             VertexAttribute(name="model_vertex", data=vert)
         )

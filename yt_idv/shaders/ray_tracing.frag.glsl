@@ -94,10 +94,12 @@ void main()
     vec4 prior_color = vec4(0.);
     bool still_looking_for_max = true;
     bool found_max = false;
-    vec2 UV = (v_model.xy+vec2(1.0,1.0))/2.0;
+    vec2 UV = vec2(0.);
     if (p1_second_pass) {
         // sample the temporary framebuffer texture from the prior pass
-        prior_color = texture(fb_temp_tex, UV); // this is prob 0...
+        // viewport = vec4 of x0, y0, w, h
+        UV.xy = gl_FragCoord.xy / viewport.zw;
+        prior_color = texture(fb_temp_tex, UV);
     }
 
     while(t <= t1) {
@@ -109,19 +111,20 @@ void main()
 
         if (sampled) {
             ever_sampled = true;
-            if (p1_second_pass){
-                if (still_looking_for_max){
-
-                    if (prior_color.r == curr_color.r) {
-                        // only compare r channel because the data value is stored
-                        // in the r channel during program1 execution
-                        v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
-                        f_ndc_depth = v_clip_coord.z / v_clip_coord.w;
-                        depth = min(depth, (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5);
-                        still_looking_for_max = false;
-                        found_max = true;
-                        // should be safe to terminate the loop at this point, but
-                        // going to let it keep running for now...
+            if (p1_second_pass) {
+                if (still_looking_for_max) {
+                    if (prior_color.r > 0) {
+                        if (prior_color.r == curr_color.r) {
+                            // only compare r channel because the data value is stored
+                            // in the r channel during program1 execution
+                            v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
+                            f_ndc_depth = v_clip_coord.z / v_clip_coord.w; // from -1 to 1 now
+                            depth = (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5;
+                            still_looking_for_max = false;
+                            found_max = true;
+                            // should be safe to terminate the loop at this point, but
+                            // going to let it keep running for now...
+                        }
                     }
 
                 }
@@ -137,23 +140,23 @@ void main()
     }
 
     if (p1_second_pass){
-        // for debugging... ya, this does not look right
-        output_color = cleanup_phase(vec4(depth, 0., 0., 1.), dir, t0, t1);
-//        output_color = cleanup_phase(prior_color, dir, t0, t1);
+        // for debugging...
+//        output_color = cleanup_phase(vec4(depth, 0., 0., 1.), dir, t0, t1);
+        output_color = cleanup_phase(prior_color, dir, t0, t1);
+//        output_color = cleanup_phase(vec4(UV.x,0., 0., 1.), dir, t0, t1);
+//        output_color = cleanup_phase(vec4(UV.y,0., 0., 1.), dir, t0, t1);
     } else {
         output_color = cleanup_phase(curr_color, dir, t0, t1);
         // the output color for this fragment
         // final pixel will be the blend of all fragments at this pixel
     }
 
-
-
     if (ever_sampled ) {
         if (p1_second_pass) {
             if (found_max){
                     // only set the fragment depth on the second pass when we know
                     // it is the depth of the max value
-                 gl_FragDepth = depth;
+                    gl_FragDepth = depth;
                 }
             }
     }

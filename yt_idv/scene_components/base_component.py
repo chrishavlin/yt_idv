@@ -234,13 +234,10 @@ class SceneComponent(traitlets.HasTraits):
         # copy the framebuffer texture into a new texture to bind
         # try setting an empty texture because the shader needs all the
         # things defined even if not using
-        print("temp fb tex")
         b_x = self.fb.fb_tex.boundary_x
         b_y = self.fb.fb_tex.boundary_y
         data = np.zeros(self.fb.fb_tex.data.shape, dtype=self.fb.fb_tex.data.dtype)
         fb_temp = Texture2D(data=data, boundary_x=b_x, boundary_y=b_y)
-        print((fb_temp.data.min(), fb_temp.data.max()))
-
         with self.fb.bind(True):
             with self.program1.enable() as p:
                 scene.camera._set_uniforms(scene, p)
@@ -259,17 +256,11 @@ class SceneComponent(traitlets.HasTraits):
                     with fb_temp.bind(target=3):
                         self.draw(scene, p)
 
-        # copy the framebuffer texture into a new texture to bind
+        # copy the framebuffer texture into the temp texture
         fb_temp.data = self.fb.data.copy()
-        # b_x = self.fb.fb_tex.boundary_x
-        # b_y = self.fb.fb_tex.boundary_y
-        # data = self.fb.data.copy()
-        # fb_temp = Texture2D(data=data, boundary_x=b_x, boundary_y=b_y)
-        print((fb_temp.data.min(), fb_temp.data.max()))
 
         # re-run p1 with extra shader
         with self.fb.bind(True):
-            print((fb_temp.data.min(), fb_temp.data.max()))
             with self.program1.enable() as p:
                 scene.camera._set_uniforms(scene, p)
                 self._set_uniforms(scene, p)
@@ -285,9 +276,7 @@ class SceneComponent(traitlets.HasTraits):
                 p._set_uniform("p1_second_pass", True)
                 with self.data.vertex_array.bind(p):
                     with fb_temp.bind(target=3):
-                        print((fb_temp.data.min(), fb_temp.data.max()))
                         self.draw(scene, p)
-
 
         if self._cmap_bounds_invalid:
             self._reset_cmap_bounds()
@@ -362,9 +351,11 @@ class SceneComponent(traitlets.HasTraits):
             data[:, :, :3] = self.fb.depth_data[:, :, None]
         data = data[data[:, :, 3] > 0][:, 0]
         if data.size > 0:
-            self.cmap_min = data.min()
+            print("size")
+            self.cmap_min = data[data>0].min()
             self.cmap_max = data.max()
         if data.size == 0:
+            print("no size")
             self.cmap_min = 0.0
             self.cmap_max = 1.0
         else:

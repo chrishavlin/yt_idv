@@ -64,25 +64,21 @@ void main()
     t0 = max(t0, 0.0);
     if (t1 <= t0) discard;
     vec2 UV = vec2(0.);
+    vec4 prior_color = vec4(0.);
     if (p1_second_pass) {
         // sample the temporary framebuffer texture from the prior pass
         // viewport = vec4 of x0, y0, w, h
-//        UV.xy = gl_FragCoord.xy / viewport.zw; // almost right but not full cube
-//        output_color = texture(fb_temp_tex, UV);
-//        output_color.a = 1.; // oh, get a cube now but not centered right...
-//        UV.xy = gl_FragCoord.xy;
-//        float redval = 0.0;
-//        glReadPixels(UV.x, UV.y, 1, 1, GL_RED,  GL_FLOAT, redval); not available at shader level
-
-        // full cube but center is not centered...
-//        output_color = texelFetch(fb_temp_tex, ivec2(gl_FragCoord.xy), 0);
-//        output_color.a = 1.; // oh, get a cube now but not centered right...
 
         // same full cube, data off centered
-        UV.xy = gl_FragCoord.yx / viewport.zw; // almost right but not full cube
-        output_color = texture(fb_temp_tex, UV);
-        output_color.a = 1.; // oh, get a cube now but not centered right...
-        return; // should be able to just return the data get the same image...
+        // THIS WORKS. BUT WHY DO I NEED TO REVERSE xy. THAT IS WEIRD.
+        // might be in the texture definition?
+        UV.xy = gl_FragCoord.yx / viewport.zw;
+        // uncomment hte following to short-circuit and return just the texture
+        // value, ends up reproducing the original image
+        // output_color = texture(fb_temp_tex, UV);
+        // return;
+        // the color of the pixel containing this fragment (from prior pass):
+        prior_color = texture(fb_temp_tex, UV);
     }
     // Some more discussion of this here:
     //  http://prideout.net/blog/?p=64
@@ -112,21 +108,8 @@ void main()
 
     ray_position = p0;
 
-    vec4 prior_color = vec4(0.);
     bool still_looking_for_max = true;
     bool found_max = false;
-
-//    if (p1_second_pass) {
-//        // sample the temporary framebuffer texture from the prior pass
-//        // viewport = vec4 of x0, y0, w, h
-////        UV.xy = gl_FragCoord.xy / viewport.zw; // almost right
-////        UV.xy = gl_FragCoord.xy; // cube but single color
-////        UV.xy = gl_Position.xy; // not defined
-//        UV.xy = gl_FragCoord.xy / viewport.zw;
-//        prior_color = texture(fb_temp_tex, UV);
-//        output_color = cleanup_phase(prior_color, dir, t0, t1);
-//        return;
-//    }
 
     while(t <= t1) {
         tex_curr_pos = (ray_position - left_edge) / range;  // Scale from 0 .. 1
@@ -135,30 +118,29 @@ void main()
 
         sampled = sample_texture(tex_curr_pos, curr_color, tdelta, t, dir);
 
-//        if (sampled) {
-//            ever_sampled = true;
-//            if (p1_second_pass) {
-//                if (still_looking_for_max) {
-//                    if (prior_color.r > 0) {
-//                        if (prior_color.r == curr_color.r) {
-//                            // only compare r channel because the data value is stored
-//                            // in the r channel during program1 execution
-//                            v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
-//                            f_ndc_depth = v_clip_coord.z / v_clip_coord.w; // from -1 to 1 now
-//                            depth = (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5;
-//                            still_looking_for_max = false;
-//                            found_max = true;
-//                            // should be safe to terminate the loop at this point, but
-//                            // going to let it keep running for now...
-//                        }
-//                    }
-//
-//                }
-//
-//            }
-//
-//
-//        }
+        if (sampled) {
+            ever_sampled = true;
+            if (p1_second_pass) {
+                if (still_looking_for_max) {
+                    if (prior_color.r > 0) {
+                    float dcolor = abs(prior_color.r - curr_color.r);
+                    float deps = 0.00001;
+                    // floating point comparison issues? dcolor == 0 fails...
+                        if (dcolor <= deps) {
+                            // only compare r channel because the data value is stored
+                            // in the r channel during program1 execution
+                            v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
+                            f_ndc_depth = v_clip_coord.z / v_clip_coord.w; // from -1 to 1 now
+                            depth = (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5;
+                            still_looking_for_max = false;
+                            found_max = true;
+                            // should be safe to terminate the loop at this point, but
+                            // going to let it keep running for now...
+                        }
+                    }
+                }
+            }
+        }
 
         t += tdelta;
         ray_position += tdelta * dir;
@@ -166,18 +148,15 @@ void main()
     }
 
     if (p1_second_pass){
-        // for debugging...
-//        output_color = cleanup_phase(vec4(depth, 0., 0., 1.), dir, t0, t1);
+        // just pass along the color
         output_color = cleanup_phase(prior_color, dir, t0, t1);
-//        output_color = cleanup_phase(vec4(UV.x,0., 0., 1.), dir, t0, t1);
-//        output_color = cleanup_phase(vec4(UV.y,0., 0., 1.), dir, t0, t1);
     } else {
         output_color = cleanup_phase(curr_color, dir, t0, t1);
         // the output color for this fragment
         // final pixel will be the blend of all fragments at this pixel
     }
 
-    if (ever_sampled ) {
+    if (ever_sampled) {
         if (p1_second_pass) {
             if (found_max){
                     // only set the fragment depth on the second pass when we know

@@ -75,14 +75,14 @@ void main()
 //        glReadPixels(UV.x, UV.y, 1, 1, GL_RED,  GL_FLOAT, redval); not available at shader level
 
         // full cube but center is not centered...
-        output_color = texelFetch(fb_temp_tex, ivec2(gl_FragCoord.xy), 0);
-        output_color.a = 1.; // oh, get a cube now but not centered right...
+//        output_color = texelFetch(fb_temp_tex, ivec2(gl_FragCoord.xy), 0);
+//        output_color.a = 1.; // oh, get a cube now but not centered right...
 
         // same full cube, data off centered
-//        UV.xy = gl_FragCoord.xy / viewport.zw; // almost right but not full cube
-//        output_color = texture(fb_temp_tex, UV);
-//        output_color.a = 1.; // oh, get a cube now but not centered right...
-        return;
+        UV.xy = gl_FragCoord.yx / viewport.zw; // almost right but not full cube
+        output_color = texture(fb_temp_tex, UV);
+        output_color.a = 1.; // oh, get a cube now but not centered right...
+        return; // should be able to just return the data get the same image...
     }
     // Some more discussion of this here:
     //  http://prideout.net/blog/?p=64

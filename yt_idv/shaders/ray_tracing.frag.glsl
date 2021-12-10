@@ -70,10 +70,18 @@ void main()
 //        UV.xy = gl_FragCoord.xy / viewport.zw; // almost right but not full cube
 //        output_color = texture(fb_temp_tex, UV);
 //        output_color.a = 1.; // oh, get a cube now but not centered right...
+//        UV.xy = gl_FragCoord.xy;
+//        float redval = 0.0;
+//        glReadPixels(UV.x, UV.y, 1, 1, GL_RED,  GL_FLOAT, redval); not available at shader level
 
-        UV.xy = (gl_FragCoord.xy)/ viewport.zw; // almost right but not full cube
-        output_color = texture(fb_temp_tex, UV);
+        // full cube but center is not centered...
+        output_color = texelFetch(fb_temp_tex, ivec2(gl_FragCoord.xy), 0);
         output_color.a = 1.; // oh, get a cube now but not centered right...
+
+        // same full cube, data off centered
+//        UV.xy = gl_FragCoord.xy / viewport.zw; // almost right but not full cube
+//        output_color = texture(fb_temp_tex, UV);
+//        output_color.a = 1.; // oh, get a cube now but not centered right...
         return;
     }
     // Some more discussion of this here:
@@ -127,30 +135,30 @@ void main()
 
         sampled = sample_texture(tex_curr_pos, curr_color, tdelta, t, dir);
 
-        if (sampled) {
-            ever_sampled = true;
-            if (p1_second_pass) {
-                if (still_looking_for_max) {
-                    if (prior_color.r > 0) {
-                        if (prior_color.r == curr_color.r) {
-                            // only compare r channel because the data value is stored
-                            // in the r channel during program1 execution
-                            v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
-                            f_ndc_depth = v_clip_coord.z / v_clip_coord.w; // from -1 to 1 now
-                            depth = (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5;
-                            still_looking_for_max = false;
-                            found_max = true;
-                            // should be safe to terminate the loop at this point, but
-                            // going to let it keep running for now...
-                        }
-                    }
-
-                }
-
-            }
-
-
-        }
+//        if (sampled) {
+//            ever_sampled = true;
+//            if (p1_second_pass) {
+//                if (still_looking_for_max) {
+//                    if (prior_color.r > 0) {
+//                        if (prior_color.r == curr_color.r) {
+//                            // only compare r channel because the data value is stored
+//                            // in the r channel during program1 execution
+//                            v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
+//                            f_ndc_depth = v_clip_coord.z / v_clip_coord.w; // from -1 to 1 now
+//                            depth = (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5;
+//                            still_looking_for_max = false;
+//                            found_max = true;
+//                            // should be safe to terminate the loop at this point, but
+//                            // going to let it keep running for now...
+//                        }
+//                    }
+//
+//                }
+//
+//            }
+//
+//
+//        }
 
         t += tdelta;
         ray_position += tdelta * dir;

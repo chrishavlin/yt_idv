@@ -131,6 +131,7 @@ void main()
             for (int i = 0; i < iso_num_layers; i++) {
                 if (abs(color_len - iso_layers[i]) <= iso_tolerance) {
                     is_layer = true;
+                    curr_color.a = iso_alphas[i];
                     break;
                 }
             }

@@ -106,7 +106,7 @@ void main()
     ray_position = p0;
 
     // precomputed so we don't need to call log 4 times per sample.
-    float inv_log10 = 1 / log(10);
+    float inv_log10 = 1 / log(10);  // log is natural log, need to convert to base10
     float log_iso_min = log(iso_min) * inv_log10;
     float log_iso_range = log(iso_max)  * inv_log10 - log(iso_min) * inv_log10;
     bool is_layer = false;

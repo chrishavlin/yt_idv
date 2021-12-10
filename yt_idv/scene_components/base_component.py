@@ -234,10 +234,10 @@ class SceneComponent(traitlets.HasTraits):
         # copy the framebuffer texture into a new texture to bind
         # try setting an empty texture because the shader needs all the
         # things defined even if not using
-        b_x = self.fb.fb_tex.boundary_x
-        b_y = self.fb.fb_tex.boundary_y
+        # b_x = self.fb.fb_tex.boundary_x
+        # b_y = self.fb.fb_tex.boundary_y
         data = np.zeros(self.fb.fb_tex.data.shape, dtype=self.fb.fb_tex.data.dtype)
-        fb_temp = Texture2D(data=data, boundary_x=b_x, boundary_y=b_y)
+        fb_temp = Texture2D(data=data)
         with self.fb.bind(True):
             with self.program1.enable() as p:
                 scene.camera._set_uniforms(scene, p)
@@ -253,13 +253,13 @@ class SceneComponent(traitlets.HasTraits):
                 p._set_uniform("fb_temp_tex", 3)
                 p._set_uniform("p1_second_pass", False)
                 with self.data.vertex_array.bind(p):
-                    with fb_temp.bind(target=3):
-                        self.draw(scene, p)
+                    self.draw(scene, p, fb_temp)
 
         # copy the framebuffer texture into the temp texture
-        fb_temp.data = self.fb.data.copy()
+        new_data = self.fb.data.copy()
+        fb_temp.data = new_data
 
-        # re-run p1 with extra shader
+        # re-run p1 with extra shader, initially clearing the frame buffer
         with self.fb.bind(True):
             with self.program1.enable() as p:
                 scene.camera._set_uniforms(scene, p)
@@ -275,8 +275,7 @@ class SceneComponent(traitlets.HasTraits):
                 p._set_uniform("fb_temp_tex", 3)
                 p._set_uniform("p1_second_pass", True)
                 with self.data.vertex_array.bind(p):
-                    with fb_temp.bind(target=3):
-                        self.draw(scene, p)
+                    self.draw(scene, p, fb_temp)
 
         if self._cmap_bounds_invalid:
             self._reset_cmap_bounds()

@@ -110,7 +110,7 @@ class BlockRendering(SceneComponent):
         tf = TransferFunctionTexture(data=np.ones((256, 1, 4), dtype="u1") * 255)
         return tf
 
-    def draw(self, scene, program):
+    def draw(self, scene, program, fb_temp):
         each = self.data.vertex_array.each
         GL.glEnable(GL.GL_CULL_FACE)
         GL.glCullFace(GL.GL_BACK)
@@ -118,7 +118,8 @@ class BlockRendering(SceneComponent):
             for tex_ind, tex, bitmap_tex in self.data.viewpoint_iter(scene.camera):
                 with tex.bind(target=0):
                     with bitmap_tex.bind(target=1):
-                        GL.glDrawArrays(GL.GL_POINTS, tex_ind * each, each)
+                        with fb_temp.bind(target=3):
+                            GL.glDrawArrays(GL.GL_POINTS, tex_ind * each, each)
 
     def _set_uniforms(self, scene, shader_program):
         shader_program._set_uniform("box_width", self.box_width)

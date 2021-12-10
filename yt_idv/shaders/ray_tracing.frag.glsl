@@ -36,6 +36,7 @@ void main()
     // https://www.opengl.org/wiki/Compute_eye_space_from_window_space#From_gl_FragCoord
     vec3 ray_position = v_model.xyz;
 
+
     // Five samples
     vec3 step_size = dx/sample_factor;
     vec3 dir = -normalize(camera_pos.xyz - ray_position);
@@ -62,7 +63,19 @@ void main()
     float t1 = min(temp_t.x, temp_t.y);
     t0 = max(t0, 0.0);
     if (t1 <= t0) discard;
+    vec2 UV = vec2(0.);
+    if (p1_second_pass) {
+        // sample the temporary framebuffer texture from the prior pass
+        // viewport = vec4 of x0, y0, w, h
+//        UV.xy = gl_FragCoord.xy / viewport.zw; // almost right but not full cube
+//        output_color = texture(fb_temp_tex, UV);
+//        output_color.a = 1.; // oh, get a cube now but not centered right...
 
+        UV.xy = (gl_FragCoord.xy)/ viewport.zw; // almost right but not full cube
+        output_color = texture(fb_temp_tex, UV);
+        output_color.a = 1.; // oh, get a cube now but not centered right...
+        return;
+    }
     // Some more discussion of this here:
     //  http://prideout.net/blog/?p=64
 
@@ -94,13 +107,18 @@ void main()
     vec4 prior_color = vec4(0.);
     bool still_looking_for_max = true;
     bool found_max = false;
-    vec2 UV = vec2(0.);
-    if (p1_second_pass) {
-        // sample the temporary framebuffer texture from the prior pass
-        // viewport = vec4 of x0, y0, w, h
-        UV.xy = gl_FragCoord.xy / viewport.zw;
-        prior_color = texture(fb_temp_tex, UV);
-    }
+
+//    if (p1_second_pass) {
+//        // sample the temporary framebuffer texture from the prior pass
+//        // viewport = vec4 of x0, y0, w, h
+////        UV.xy = gl_FragCoord.xy / viewport.zw; // almost right
+////        UV.xy = gl_FragCoord.xy; // cube but single color
+////        UV.xy = gl_Position.xy; // not defined
+//        UV.xy = gl_FragCoord.xy / viewport.zw;
+//        prior_color = texture(fb_temp_tex, UV);
+//        output_color = cleanup_phase(prior_color, dir, t0, t1);
+//        return;
+//    }
 
     while(t <= t1) {
         tex_curr_pos = (ray_position - left_edge) / range;  // Scale from 0 .. 1

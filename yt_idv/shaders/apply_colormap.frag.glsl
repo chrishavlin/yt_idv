@@ -15,10 +15,9 @@ void main(){
    float cp = cmap_max;
 
    if (cmap_log > 0.5) {
-       float inv_log10 = 1 / log(10);  // log is natural log, need to convert to base10
-       scaled = log(scaled) * inv_log10;
-       cm = log(cm) * inv_log10;
-       cp = log(cp) * inv_log10;
+       scaled = log(scaled);
+       cm = log(cm);
+       cp = log(cp);
    }
    color = texture(cm_tex, (scaled - cm) / (cp - cm));
 

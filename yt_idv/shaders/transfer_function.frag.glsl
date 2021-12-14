@@ -13,11 +13,10 @@ bool sample_texture(vec3 tex_curr_pos, inout vec4 curr_color, float tdelta,
     float tex_sample = texture(ds_tex, offset_pos).r;
 
     if (tf_log > 0.5) {
-        if(tex_sample <= 0.0) return false;
-        float inv_log10 = 1 / log(10);  // log is natural log, need to convert to base10
-        tex_sample = log(tex_sample) * inv_log10;
-        tm = log(tm) * inv_log10;
-        tp = log(tp) * inv_log10;
+       if(tex_sample <= 0.0) return false;
+       tex_sample = log(tex_sample);
+       tm = log(tm);
+       tp = log(tp);
     }
 
     if(tex_sample < tm) return false;

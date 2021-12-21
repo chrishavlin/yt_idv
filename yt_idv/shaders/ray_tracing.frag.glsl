@@ -123,15 +123,16 @@ void main()
             if (p1_second_pass) {
                 if (still_looking_for_max) {
                     if (prior_color.r > 0) {
-                    float dcolor = abs(prior_color.r - curr_color.r);
-                    float deps = 0.00001;
-                    // floating point comparison issues? dcolor == 0 fails...
-                        if (dcolor <= deps) {
+//                        float dcolor = abs(prior_color.r - curr_color.r) / prior_color.r;
+//                        float deps = 0.0;//00000001; // fractional variation
+                        // floating point comparison issues? dcolor == 0 fails...
+                        if (prior_color.r == curr_color.r) {
                             // only compare r channel because the data value is stored
                             // in the r channel during program1 execution
                             v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
-                            f_ndc_depth = v_clip_coord.z / v_clip_coord.w; // from -1 to 1 now
-                            depth = (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5;
+                            f_ndc_depth = v_clip_coord.z / v_clip_coord.w; // from -1 to 1 now. is it tho?
+                            depth = f_ndc_depth;
+//                            depth = (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5;
                             still_looking_for_max = false;
                             found_max = true;
                             // should be safe to terminate the loop at this point, but
@@ -162,7 +163,9 @@ void main()
                     // only set the fragment depth on the second pass when we know
                     // it is the depth of the max value
                     gl_FragDepth = depth;
-                }
+            } else {
+                discard;
             }
+        }
     }
 }

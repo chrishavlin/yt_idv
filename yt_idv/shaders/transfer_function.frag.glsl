@@ -27,6 +27,8 @@ bool sample_texture(vec3 tex_curr_pos, inout vec4 curr_color, float tdelta,
     float ta = max((1.0f - dt * tf_sample.a), 0.0);
 
     curr_color = dt * tf_sample + ta * curr_color;
+//    ta = tf_sample.a;
+//    curr_color = ta * tf_sample - (1 - ta) * curr_color;
     return true;
 }
 

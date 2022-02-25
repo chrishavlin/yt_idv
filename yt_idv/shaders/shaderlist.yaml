@@ -104,14 +104,10 @@ shader_definitions:
       source:
       - ray_tracing.frag.glsl
       - transfer_function.frag.glsl
-      blend_func_separate:
-      - one minus dst alpha
+      blend_func:
       - one
-      - one minus dst alpha
       - one
-      blend_equation_separate:
-      - func add
-      - func add
+      blend_equation: func add
     sph_kernel:
       info: Sample pre-integrated SPH kernel
       source: sph_kernel.frag.glsl

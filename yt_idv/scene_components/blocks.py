@@ -140,7 +140,7 @@ class BlockRendering(SceneComponent):
 
     def _set_uniforms(self, scene, shader_program):
         shader_program._set_uniform(
-            "is_spherical", self.data.data_source.ds.geometry == "spherical"
+            "is_spherical", str(self.data.data_source.ds.geometry) == "spherical"
         )
         if self.data.data_source.ds.geometry == "spherical":
             axis_id = self.data.data_source.ds.coordinates.axis_id

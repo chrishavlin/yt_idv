@@ -289,8 +289,8 @@ def _get_camera_for_geometry(data_source, ds):
 
         pos = center + 1.5 * wid
 
-        dx_aprox = wid[0] / np.max(ds.domain_dimensions)
-        near_plane = 3.0 * dx_aprox
+        dx_approx = wid[0] / np.max(ds.domain_dimensions)
+        near_plane = 3.0 * dx_approx
         near_plane = max(near_plane, 1e-5)
         return center, pos, near_plane
     else:

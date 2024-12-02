@@ -133,8 +133,10 @@ class BlockCollection(SceneData):
             self.vertex_array.attributes.append(
                 VertexAttribute(name="phi_plane_re", data=phi_plane_re)
             )
-            # cartesian bbox: very ugly, just testing...
-            print("calculating cartesian bounding boxes.")
+
+            # get the cartesian bounding boxes for each block.
+            # TODO: refactor a bit to clean this up. Can re-write the cython funcs to
+            # more easily match what we already have from the blocks.
             widths = re - le
             centers = (le + re) / 2.0
             bbox_handler = SphericalMixedCoordBBox()
@@ -172,6 +174,10 @@ class BlockCollection(SceneData):
 
             le_cart = np.asarray(le_cart)
             re_cart = np.asarray(re_cart)
+
+            # these will get passed down as uniforms so the shader can transform
+            # from in-screen (0, 1) coordinates to both full cartesian and
+            # spherical coordinates as needed.
             self.cart_bbox_max_width = max_wid
             self.cart_bbox_le = np.array(domain_le).astype("f4")
 

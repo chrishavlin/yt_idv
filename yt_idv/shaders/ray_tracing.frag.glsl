@@ -1,7 +1,7 @@
 in vec4 v_model;
 flat in vec3 dx;
-flat in vec3 left_edge;
-flat in vec3 right_edge;
+flat in vec3 left_edge;  // native coordinates
+flat in vec3 right_edge; // native coordinates
 flat in vec3 left_edge_cart;
 flat in vec3 right_edge_cart;
 flat in mat4 inverse_proj;  // always cartesian
@@ -15,8 +15,8 @@ flat in vec4 phi_plane_re;
 
 bool within_bb(vec3 pos)
 {
-    bvec3 left =  greaterThanEqual(pos, left_edge_cart);
-    bvec3 right = lessThanEqual(pos, right_edge_cart);
+    bvec3 left =  greaterThanEqual(pos, left_edge);
+    bvec3 right = lessThanEqual(pos, left_edge);
     return all(left) && all(right);
 }
 
@@ -70,19 +70,12 @@ void main()
     // Obtain screen coordinates
     // https://www.opengl.org/wiki/Compute_eye_space_from_window_space#From_gl_FragCoord
 
-    vec3 ray_position = v_model.xyz;
-    vec3 ray_position_sp = cart_to_sphere_vec3(ray_position);
+    vec3 ray_position = v_model.xyz; // in cartesian
+    vec3 ray_position_native = vec3(0.0); // updated in the ray tracing loop
 
     output_color = vec4(0.);
-//    bool inside = within_spherical_bounds(ray_position_sp);
-//    if (inside) {
-//        output_color = vec4(1., 1., 1., 1.);
-//    }
-//    return;
 
     // Five samples
-    vec3 dx_cart = right_edge_cart - left_edge_cart;
-    vec3 step_size = dx_cart/ sample_factor;
     vec3 dir = -normalize(camera_pos.xyz - ray_position);
     dir = max(abs(dir), 0.0001) * sign(dir);
     vec4 curr_color = vec4(0.0);
@@ -91,8 +84,23 @@ void main()
     // This will help solve the left/right edge issues.
 
     vec3 idir = 1.0/dir;
-    vec3 tl = (left_edge_cart - camera_pos)*idir;
-    vec3 tr = (right_edge_cart - camera_pos)*idir;
+    vec3 tl = vec3(0.);
+    vec3 tr = vec3(0.);
+    vec3 dx_cart = vec3(0.0);
+
+    if (is_spherical) {
+        dx_cart = right_edge_cart - left_edge_cart;
+        tl = (left_edge_cart - camera_pos)*idir;
+        tr = (right_edge_cart - camera_pos)*idir;
+    } else {
+        dx_cart = right_edge - left_edge;
+        tl = (left_edge - camera_pos)*idir;
+        tr = (right_edge - camera_pos)*idir;
+    }
+
+    vec3 step_size = dx_cart/ sample_factor;
+
+
     vec3 tmin, tmax;
     bvec3 temp_x, temp_y;
     // These 't' prefixes actually mean 'parameter', as we use in grid_traversal.pyx.
@@ -142,10 +150,19 @@ void main()
     while(t <= t1) {
 
         // texture position
-        ray_position_sp = cart_to_sphere_vec3(ray_position);
-        within_el = within_spherical_bounds(ray_position_sp);
+
+        if (is_spherical){
+            ray_position_native = cart_to_sphere_vec3(ray_position);
+            within_el = within_bb(ray_position_native);
+        } else {
+            ray_position_native = ray_position;
+            within_el = true;
+        }
+
+
+
         if (within_el) {
-            tex_curr_pos = (ray_position_sp - left_edge) / range;  // Scale from 0 .. 1
+            tex_curr_pos = (ray_position_native - left_edge) / range;  // Scale from 0 .. 1
             // But, we actually need it to be 0 + normalized dx/2 to 1 - normalized dx/2
             tex_curr_pos = (tex_curr_pos * (1.0 - ndx)) + ndx/2.0;
 

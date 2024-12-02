@@ -20,13 +20,6 @@ bool within_bb(vec3 pos)
     return all(left) && all(right);
 }
 
-bool within_spherical_bounds(vec3 pos)
-{
-    bvec3 left =  greaterThanEqual(pos, left_edge);
-    bvec3 right = lessThanEqual(pos, right_edge);
-    return all(left) && all(right);
-}
-
 vec3 cart_to_sphere_vec3(vec3 v) {
     // transform a single point in cartesian coords to spherical
     vec3 vout = vec3(0.,0.,0.);
@@ -150,7 +143,6 @@ void main()
     while(t <= t1) {
 
         // texture position
-
         if (is_spherical){
             ray_position_native = cart_to_sphere_vec3(ray_position);
             within_el = within_bb(ray_position_native);
@@ -158,8 +150,6 @@ void main()
             ray_position_native = ray_position;
             within_el = true;
         }
-
-
 
         if (within_el) {
             tex_curr_pos = (ray_position_native - left_edge) / range;  // Scale from 0 .. 1

@@ -45,6 +45,115 @@ vec3 cart_to_sphere_vec3(vec3 v) {
     return vout;
 
 }
+
+float get_ray_plane_intersection(vec3 p_normal, float p_constant, vec3 ray_origin, vec3 ray_dir)
+{
+    float n_dot_u = dot(p_normal, ray_dir);
+    float n_dot_ro = dot(p_normal, ray_origin);
+    // add check for n_dot_u == 0 (ray is parallel to plane)    
+    n_dot_u = n_dot_u + 0.000000001 * (n_dot_u == 0.0)
+    return (p_constant - n_dot_ro) / n_dot_u;
+}
+
+vec2 get_ray_sphere_intersection(float r, vec3 ray_origin, vec3 ray_dir)
+{
+    float dir_dot_dir = dot(ray_dir, ray_dir);
+    float ro_dot_ro = dot(ray_origin, ray_origin);
+    float dir_dot_ro = dot(ray_dir, ray_origin);
+    float rsq = r * r; // could be calculated in vertex shader
+
+    float a_2 = 2.0 * dir_dot_dir;
+    float b = 2.0 * dir_dot_ro;
+    float c =  ro_dot_ro - rsq;
+    float determinate = b*b - 2.0 * a_2 * c;
+    float cutoff_val = 0.0;
+
+    float det_term     
+    if (determinate < cutoff_val)
+    {
+        return vec2(-99., -99.);
+    }
+    else if (determinate == cutoff_val)
+    {
+        return vec2(-b / a_2, -99.0);
+    }
+    else
+    {
+        return vec2((-b - sqrt(determinate))/ a_2, (-b + sqrt(determinate))/ a_2);
+    }
+
+}
+
+vec2 get_ray_cone_intersection(float theta, vec3 ray_origin, vec3 ray_dir)
+{
+    // note: cos(theta) and vhat could be calculated in vertex shader
+    float costheta;
+    vec3 vhat;
+    if (theta > PI/2.0)
+    {
+        // if theta is past PI/2, the cone will point in negative z and the
+        // half angle should be measured from the -z axis, not +z.
+        vhat = vec3(0.0, 0.0, -1.0);
+        costheta = cos(PI - theta);
+    }
+    else
+    {
+        vhat = vec3(0.0, 0.0, 1.0);
+        costheta = cos(theta);
+    }
+    float cos2t = pow(costheta, 2);
+    // note: theta = PI/2.0 is well defined. determinate = 0 in that case and
+    // the cone becomes a plane in x-y.
+
+    float dir_dot_vhat = dot(ray_dir, vhat);
+    float dir_dot_dir = dot(ray_dir, ray_dir);
+    float ro_dot_vhat = dot(ray_origin, vhat);
+    float ro_dot_dir = dot(ray_origin, ray_dir);
+    float ro_dot_ro = dot(ray_origin, ray_dir);
+
+    float a_2 = 2.0*(pow(dir_dot_vhat, 2) - dir_dot_dir * cos2t);
+    float b = 2.0 * (ro_dot_vhat * dir_dot_vhat - ro_dot_dir*cos2t);
+    float c = pow(ro_dot_vhat, 2) - ro_dot_ro*cos2t;
+    float determinate = b*b - 2.0 * a_2 * c;
+    if (determinate < 0.0)
+    {
+        return vec2(-99.0, -99.0);
+    }
+    else if (determinate == 0.0)
+    {
+        return vec2(-b / a_2, -99.0);
+    }
+    else
+    {
+        // note: it is possible to have real solutions that intersect the shadow cone
+        // and not the actual cone. those values should be discarded. But they will
+        // fail subsequent bounds checks for interesecting the volume, so we can
+        // just handle it there instead of adding another check here.
+        return vec2((-b - sqrt(determinate))/ a_2, (-b + sqrt(determinate))/ a_2);
+    }
+}
+
+int store_temp_intx(int n_extra, vec4 t_extra, float t_temp, float t0, float t1) { 
+
+    if (t_temp > t0 && t_temp < t1){ 
+        t_extra[n_extra] = t_temp;
+        n_extra += 1;
+    }
+    return n_extra;
+}
+
+float max_of_vec4(vec4 in_vec){ 
+    float temp_val1 = max(in_vec[0], in_vec[1]); 
+    float temp_val2 = max(in_vec[2], in_vec[3]);
+    return max(temp_val1, temp_val2);    
+}
+
+float min_of_vec4(vec4 in_vec){ 
+    float temp_val1 = min(in_vec[0], in_vec[1]); 
+    float temp_val2 = min(in_vec[2], in_vec[3]);
+    return min(temp_val1, temp_val2);     
+}
+
 #endif
 
 vec3 get_offset_texture_position(sampler3D tex, vec3 tex_curr_pos)
@@ -106,6 +215,73 @@ void main()
     float t1 = min(temp_t.x, temp_t.y);
     t0 = max(t0, 0.0);
     if (t1 <= t0) discard;
+
+    #ifdef SPHERICAL_GEOM
+    // here, we check the intersections with the primitive geometries describing the 
+    // surfaces of the spherical volume element. The intersections are only saved if 
+    // they fall within the ray parameter range given by the initial slab test 
+    // there are 0, 1, 2 or 4 intersections possible. 
+    // 4 intersections is annoying. 
+    vec4 t_extra = vec4(-99.0)
+    vec2 t_temp2
+    float t3 = -99.0
+    float t4 = -99.0
+    int n_extra = 0 
+    
+    t_temp2 = get_ray_sphere_intersection(right_edge[id_r], ray_position_xyz, dir);        
+    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_extra, t_temp2[1], t0, t1)
+
+    t_temp2 = get_ray_sphere_intersection(left_edge[id_r], ray_position_xyz, dir);
+    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_extra, t_temp2[1], t0, t1)
+    
+    t_temp[0] = get_ray_plane_intersection(vec3(phi_plane_le), phi_plane_le[3], ray_position_xyz, dir);
+    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
+    t_temp[0] = get_ray_plane_intersection(vec3(phi_plane_re), phi_plane_re[3], ray_position_xyz, dir);
+    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
+
+    t_temp = get_ray_cone_intersection(right_edge[id_theta], ray_position_xyz, dir);
+    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_extra, t_temp2[1], t0, t1)
+
+    t_temp = get_ray_cone_intersection(left_edge[id_theta], ray_position_xyz, dir);
+    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_extra, t_temp2[1], t0, t1)
+    
+    // at this point, t_extra will contain 1, 2 or 4 intersections that fall within 
+    // the bounding cartesian box and are gaurenteed to be > 0 if they are set.
+    if (n_extra == 1) { 
+        // only hits the cusp of the outer radius, lets just drop it... 
+        discard; 
+    }
+     
+    // now sort the t_extra
+    // this is probably not as efficient as it could be, but it will work.
+    float full_max = max_of_vec4(t_extra);
+    float full_min = min_of_vec4(t_extra);    
+
+    // store the other 2 points 
+    vec2 mid_ts = vec2(-99.0);
+    int i_mid = 0;
+    for (int i=0;i<4;++i)
+    {
+        if (t_extra[i] > full_min and t_extra[i] < full_max){
+            mid_ts[i_mid] = t_extra[i];
+            i_mid += 1;
+        }
+    }
+    float mid_min = min(mid_ts[0], mid_ts[1]);
+    float mid_max = max(mid_ts[0], mid_ts[1]);    
+
+    t_extra = vec4(full_min, mid_min, mid_max, full_max); // now ordered low to high
+
+    t0 = t_extra[0];
+    t1 = t_extra[1];
+    t2 = t_extra[2];
+    t3 = t_extra[3];    
+
+    #endif
 
     // Some more discussion of this here:
     //  http://prideout.net/blog/?p=64

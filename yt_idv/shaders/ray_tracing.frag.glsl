@@ -222,104 +222,86 @@ void main()
     t0 = max(t0, 0.0);
     if (t1 <= t0) discard;
 
+    vec4 t_control_points = vec4(-99.0)
     #ifdef SPHERICAL_GEOM
     // here, we check the intersections with the primitive geometries describing the
     // surfaces of the spherical volume element. The intersections are only saved if
     // they fall within the ray parameter range given by the initial slab test
     // there are 0, 1, 2 or 4 intersections possible. 4 intersections is annoying.
-    vec4 t_extra = vec4(-99.0)
     vec2 t_temp2
     int n_extra = 0
     float t2 = -99.0
     float t3 = -99.0
 
     t_temp2 = get_ray_sphere_intersection(right_edge[id_r], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
-    store_temp_intx(n_extra, t_extra, t_temp2[1], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1)
 
     t_temp2 = get_ray_sphere_intersection(left_edge[id_r], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
-    store_temp_intx(n_extra, t_extra, t_temp2[1], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1)
 
     t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_le), phi_plane_le[3], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
     t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_re), phi_plane_re[3], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
 
     t_temp2 = get_ray_cone_intersection(right_edge[id_theta], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
-    store_temp_intx(n_extra, t_extra, t_temp2[1], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1)
 
     t_temp2 = get_ray_cone_intersection(left_edge[id_theta], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_extra, t_temp2[0], t0, t1)
-    store_temp_intx(n_extra, t_extra, t_temp2[1], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1)
 
-    // at this point, t_extra will contain 1, 2 or 4 intersections that fall within
+    // at this point, t_control_points will contain 1, 2 or 4 intersections that fall within
     // the bounding cartesian box and are guaranteed to be > 0 if they are set.
     if (n_extra == 1) {
         // only hits the cusp of the outer radius, lets just drop it...
         discard;
     }
 
-    // now sort the t_extra: this is probably not as efficient as it could be, but it will work.
-    float full_max = max_of_vec4(t_extra);
-    float full_min = min_of_vec4(t_extra);
+    // now sort the t_control_points: this is probably not as efficient as it could be, but it will work.
+    float full_max = max_of_vec4(t_control_points);
+    float full_min = min_of_vec4(t_control_points);
 
     // store the other 2 points
     vec2 mid_ts = vec2(-99.0);
     int i_mid = 0;
     for (int i=0;i<4;++i)
     {
-        if (t_extra[i] > full_min and t_extra[i] < full_max){
-            mid_ts[i_mid] = t_extra[i];
+        if (t_control_points[i] > full_min and t_control_points[i] < full_max){
+            mid_ts[i_mid] = t_control_points[i];
             i_mid += 1;
         }
     }
     float mid_min = min(mid_ts[0], mid_ts[1]);
     float mid_max = max(mid_ts[0], mid_ts[1]);
 
-    t_extra = vec4(full_min, mid_min, mid_max, full_max);
-    // t_extra now ordered low to high. If there are only two intersections,
-    // t_extra[0] and t_extra[1] will both be -99, which is OK for the ray tracing
+    t_control_points = vec4(full_min, mid_min, mid_max, full_max);
+    // t_control_points now ordered low to high. If there are only two intersections,
+    // t_control_points[0] t_control_points t_extra[1] will both be -99, which is OK for the ray tracing
     // algorithim below.
-
-    // ray tracing will proceed in two incremenets
-    t0 = t_extra[0];
-    t1 = t_extra[3];
-
-    t0 = t_extra[2];
-    t1 = t_extra[3];
-
-    // from t0 to t1, will be -99 to -99 if only two intersections
-    t2 = t_extra[0];
-    t3 = t_extra[1];
-
-    vec3 p0 = camera_pos.xyz + dir * t0;
-    vec3 p1 = camera_pos.xyz + dir * t1;
 
     #else
 
+    t_control_points[0] = t0;
+    t_control_points[1] = t1;
 
     #endif
 
-    // Some more discussion of this here:
-    //  http://prideout.net/blog/?p=64
-
-    vec3 p0 = camera_pos.xyz + dir * t0;
-    vec3 p1 = camera_pos.xyz + dir * t1;
-
-    vec3 dxidir = abs(idir)  * step_size;
-
-    temp_t = min(dxidir.xx, dxidir.yz);
-
-    float tdelta = min(temp_t.x, temp_t.y);
-    float t = t0;
-
-    vec3 range = (right_edge + dx/2.0) - (left_edge - dx/2.0);  // texture range in native coords
+    // setup texture coordinates (always in native coordinates)
+    vec3 range = (right_edge + dx/2.0) - (left_edge - dx/2.0);
     vec3 nzones = range / dx;
     vec3 ndx = 1.0/nzones;
 
     vec3 tex_curr_pos = vec3(0.0);
+
+    // initialize ray tracing loop variables
+
+    vec3 p0  // cartesian position at t = t0
+    vec3 p1  // cartesian position at t = t1
+    float t  // current value of ray parameter t
 
     bool sampled;
     bool ever_sampled = false;
@@ -329,36 +311,54 @@ void main()
     float f_ndc_depth;
     float depth = 1.0;
 
-    ray_position = p0;
+    vec3 dxidir = abs(idir)  * step_size;
+    temp_t = min(dxidir.xx, dxidir.yz);
+    float tdelta = min(temp_t.x, temp_t.y);
 
-    while(t <= t1) {
+    // Some more discussion of this here:
+    //  http://prideout.net/blog/?p=64
+    for (int ipart =0; 1; ipart++ipart){
+        t0 = t_control_points[ipart + 2 * ipart]  // index 0 or 2
+        t1 = t_control_points[ipart + 1 + 2 * ipart] // index 1 or 3
 
-        // texture position
-        #ifdef SPHERICAL_GEOM
-        ray_position_native = cart_to_sphere_vec3(ray_position);
-        within_el = within_bb(ray_position_native);
-        #else
-        ray_position_native = ray_position;
-        #endif
+        t0 = max(t0, 0.0); // if t0 = -99., will have t > t1 and loop wont run below.
+        p0 = camera_pos.xyz + dir * t0;
+        p1 = camera_pos.xyz + dir * t1;
+        t = t0;
 
-        if (within_el) {
-            tex_curr_pos = (ray_position_native - left_edge) / range;  // Scale from 0 .. 1
-            // But, we actually need it to be 0 + normalized dx/2 to 1 - normalized dx/2
-            tex_curr_pos = (tex_curr_pos * (1.0 - ndx)) + ndx/2.0;
-            sampled = sample_texture(tex_curr_pos, curr_color, tdelta, t, dir);
+        ray_position = p0;
+
+        while(t <= t1) {
+
+            // texture position
+            #ifdef SPHERICAL_GEOM
+            ray_position_native = cart_to_sphere_vec3(ray_position);
+            within_el = within_bb(ray_position_native);
+            #else
+            ray_position_native = ray_position;
+            #endif
+
+            if (within_el) {
+                tex_curr_pos = (ray_position_native - left_edge) / range;  // Scale from 0 .. 1
+                // But, we actually need it to be 0 + normalized dx/2 to 1 - normalized dx/2
+                tex_curr_pos = (tex_curr_pos * (1.0 - ndx)) + ndx/2.0;
+                sampled = sample_texture(tex_curr_pos, curr_color, tdelta, t, dir);
+            }
+
+            if (sampled) {
+                ever_sampled = true;
+                v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
+                f_ndc_depth = v_clip_coord.z / v_clip_coord.w;
+                depth = min(depth, (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5);
+            }
+
+            t += tdelta;
+            ray_position += tdelta * dir;
+
         }
-
-        if (sampled) {
-            ever_sampled = true;
-            v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
-            f_ndc_depth = v_clip_coord.z / v_clip_coord.w;
-            depth = min(depth, (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5);
-        }
-
-        t += tdelta;
-        ray_position += tdelta * dir;
 
     }
+
 
     output_color = cleanup_phase(curr_color, dir, t0, t1);
 

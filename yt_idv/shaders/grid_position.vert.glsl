@@ -20,9 +20,15 @@ flat out vec3 vright_edge;
 // pre-computed cartesian le, re
 in vec3 le_cart;
 in vec3 re_cart;
+// pre-computed phi-normal planes
+// first 3 elements are the normal vector, final is constant
+in vec4 phi_plane_le;
+in vec4 phi_plane_re;
 
 flat out vec3 vleft_edge_cart;
 flat out vec3 vright_edge_cart;
+flat out vec4 vphi_plane_le;
+flat out vec4 vphi_plane_re;
 #endif
 
 
@@ -46,5 +52,7 @@ void main()
     // cartesian bounding boxes
     vleft_edge_cart = vec3(le_cart);
     vright_edge_cart = vec3(re_cart);
+    vphi_plane_le = vec4(phi_plane_le);
+    vphi_plane_re = vec4(phi_plane_re);
     #endif
 }

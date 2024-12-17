@@ -10,6 +10,8 @@ flat in ivec3 texture_offset;
 #ifdef SPHERICAL_GEOM
 flat in vec3 left_edge_cart;
 flat in vec3 right_edge_cart;
+flat in vec4 phi_plane_le;
+flat in vec4 phi_plane_re;
 #endif
 
 out vec4 output_color;
@@ -22,9 +24,19 @@ bool within_bb(vec3 pos)
 }
 
 #ifdef SPHERICAL_GEOM
+
+vec3 scale_cart(vec3 v) {
+    vec3 vout;
+    vout[0] = v[0] * cart_bbox_max_width + cart_bbox_le[0];
+    vout[1] = v[1] * cart_bbox_max_width + cart_bbox_le[1];
+    vout[2] = v[2] * cart_bbox_max_width + cart_bbox_le[2];
+    return vout;
+}
+
 vec3 cart_to_sphere_vec3(vec3 v) {
     // transform a single point in cartesian coords to spherical
-    vec3 vout = vec3(0.,0.,0.);
+    vec3 vout;
+    vec3 vsc = scale_cart(v); // re-scaled cartesian
 
     // in yt, phi is the polar angle from (0, 2pi), theta is the azimuthal
     // angle (0, pi). the id_ values below are uniforms that depend on the
@@ -32,10 +44,10 @@ vec3 cart_to_sphere_vec3(vec3 v) {
     float x = v[0] * cart_bbox_max_width + cart_bbox_le[0];
     float y = v[1] * cart_bbox_max_width + cart_bbox_le[1];
     float z = v[2] * cart_bbox_max_width + cart_bbox_le[2];
-    vout[id_r] = x * x + y * y + z * z;
+    vout[id_r] = vsc[0] * vsc[0] + vsc[1] * vsc[1] + vsc[2] * vsc[2];
     vout[id_r] = sqrt(vout[id_r]);
-    vout[id_theta] = acos(z / vout[id_r]);
-    float phi = atan(y, x);
+    vout[id_theta] = acos(vsc[2] / vout[id_r]);
+    float phi = atan(vsc[1], vsc[0]);
     // atan2 returns -pi to pi, adjust to (0, 2pi)
     if (phi < 0 ){
         phi = phi + 2.0 * PI;
@@ -84,7 +96,8 @@ vec2 quadratic_eval(float b, float a_2, float c){
     b = -1. * b/a_2;
 
     // do the calculation
-    vec2 return_vec = vec2((b - det)*det_is_nonneg + null_val, (b + det)*det_is_nonneg + null_val);
+    vec2 return_vec;
+    return_vec = vec2((b - det)*det_is_nonneg + null_val, (b + det)*det_is_nonneg + null_val);
     // override the second return if det is 0.
     return_vec[1] = return_vec[1] * (1. - det_is_zero)  - 99. * det_is_zero;
 
@@ -222,37 +235,39 @@ void main()
     t0 = max(t0, 0.0);
     if (t1 <= t0) discard;
 
-    vec4 t_control_points = vec4(-99.0)
+    vec4 t_control_points = vec4(-99.0);
     #ifdef SPHERICAL_GEOM
     // here, we check the intersections with the primitive geometries describing the
     // surfaces of the spherical volume element. The intersections are only saved if
     // they fall within the ray parameter range given by the initial slab test
     // there are 0, 1, 2 or 4 intersections possible. 4 intersections is annoying.
-    vec2 t_temp2
-    int n_extra = 0
-    float t2 = -99.0
-    float t3 = -99.0
+    vec2 t_temp2;
+    int n_extra = 0;
+    float t2 = -99.0;
+    float t3 = -99.0;
+    vec3 ray_position_xyz = scale_cart(ray_position);
 
+    // arg... dir, ray_position_xyz sacling needs to be handled probably?
     t_temp2 = get_ray_sphere_intersection(right_edge[id_r], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
-    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
     t_temp2 = get_ray_sphere_intersection(left_edge[id_r], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
-    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
     t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_le), phi_plane_le[3], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
     t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_re), phi_plane_re[3], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
 
     t_temp2 = get_ray_cone_intersection(right_edge[id_theta], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
-    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
     t_temp2 = get_ray_cone_intersection(left_edge[id_theta], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1)
-    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1)
+    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
     // at this point, t_control_points will contain 1, 2 or 4 intersections that fall within
     // the bounding cartesian box and are guaranteed to be > 0 if they are set.
@@ -266,11 +281,11 @@ void main()
     float full_min = min_of_vec4(t_control_points);
 
     // store the other 2 points
-    vec2 mid_ts = vec2(-99.0);
+    vec2 mid_ts = vec2(-99.0, -99.0);
     int i_mid = 0;
     for (int i=0;i<4;++i)
     {
-        if (t_control_points[i] > full_min and t_control_points[i] < full_max){
+        if (t_control_points[i] > full_min && t_control_points[i] < full_max){
             mid_ts[i_mid] = t_control_points[i];
             i_mid += 1;
         }
@@ -299,9 +314,9 @@ void main()
 
     // initialize ray tracing loop variables
 
-    vec3 p0  // cartesian position at t = t0
-    vec3 p1  // cartesian position at t = t1
-    float t  // current value of ray parameter t
+    vec3 p0;  // cartesian position at t = t0
+    vec3 p1;  // cartesian position at t = t1
+    float t;  // current value of ray parameter t
 
     bool sampled;
     bool ever_sampled = false;
@@ -317,9 +332,10 @@ void main()
 
     // Some more discussion of this here:
     //  http://prideout.net/blog/?p=64
-    for (int ipart =0; 1; ipart++ipart){
-        t0 = t_control_points[ipart + 2 * ipart]  // index 0 or 2
-        t1 = t_control_points[ipart + 1 + 2 * ipart] // index 1 or 3
+    for (int ipart=0;ipart<2;++ipart)
+    {
+        t0 = t_control_points[ipart + 2 * ipart];  // index 0 or 2
+        t1 = t_control_points[ipart + 1 + 2 * ipart]; // index 1 or 3
 
         t0 = max(t0, 0.0); // if t0 = -99., will have t > t1 and loop wont run below.
         p0 = camera_pos.xyz + dir * t0;

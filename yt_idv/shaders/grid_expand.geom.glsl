@@ -8,8 +8,12 @@ flat in vec3 vright_edge[];
 #ifdef SPHERICAL_GEOM
 flat in vec3 vleft_edge_cart[];
 flat in vec3 vright_edge_cart[];
+flat in vec4 vphi_plane_le[];
+flat in vec4 vphi_plane_re[];
 flat out vec3 left_edge_cart;
 flat out vec3 right_edge_cart;
+flat out vec4 phi_plane_le;
+flat out vec4 phi_plane_re;
 #endif
 
 flat out vec3 dx;
@@ -75,6 +79,8 @@ void main() {
         #ifdef SPHERICAL_GEOM
         left_edge_cart = vleft_edge_cart[0];
         right_edge_cart = vright_edge_cart[0];
+        phi_plane_le = vphi_plane_le[0];
+        phi_plane_re = vphi_plane_re[0];
         #endif
 
         dx = vdx[0];

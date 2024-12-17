@@ -124,6 +124,7 @@ class BlockCollection(SceneData):
             from yt_idv.coordinate_utilities import (
                 SphericalMixedCoordBBox,
                 cartesian_bboxes_edges,
+                phi_normal_planes,
             )
 
             axis_id = self.data_source.ds.coordinates.axis_id
@@ -171,6 +172,17 @@ class BlockCollection(SceneData):
             # does not seem that diagonal is used anywhere, but recalculating to
             # be safe...
             self.diagonal = np.sqrt(((re_cart - le_cart) ** 2).sum())
+
+            # pre-calculate the phi-normal planes
+            axis_id = self.data_source.ds.coordinates.axis_id
+            phi_plane_le = phi_normal_planes(le, axis_id, cast_type="f4")
+            phi_plane_re = phi_normal_planes(re, axis_id, cast_type="f4")
+            self.vertex_array.attributes.append(
+                VertexAttribute(name="phi_plane_le", data=phi_plane_le)
+            )
+            self.vertex_array.attributes.append(
+                VertexAttribute(name="phi_plane_re", data=phi_plane_re)
+            )
         else:
             raise NotImplementedError(
                 f"{self.name} does not implement {self._yt_geom_str} geometries."

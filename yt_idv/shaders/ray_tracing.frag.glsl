@@ -66,7 +66,7 @@ vec2 quadratic_eval(float b, float a_2, float c){
 
     float det = b*b - 2.0 * a_2 * c; // determinate
 
-    // handle determinate cases 
+    // handle determinate cases
     // det == 0 : 1 intersection
     // det > 0 : 2 real intersections.
     //     Note that real intersections may be with the shadow cone! but those intersections will
@@ -75,12 +75,12 @@ vec2 quadratic_eval(float b, float a_2, float c){
 
     vec2 return_vec = vec2(-99., -99.);
     if (det == 0){
-        return_vec[0] = -b / a_2; 
-    } else if (det > 0) { 
-        return_vec[0] = (-b - det) / a_2;
-        return_vec[1] = (-b + det) / a_2;
+        return_vec[0] = -b / a_2;
+    } else if (det > 0) {
+        return_vec[0] = (-b - sqrt(det)) / a_2;
+        return_vec[1] = (-b + sqrt(det)) / a_2;
     }
-   
+
     return return_vec;
 }
 
@@ -91,11 +91,11 @@ vec2 get_ray_sphere_intersection(float r, vec3 ray_origin, vec3 ray_dir)
     float b = 2.0 * dot(ray_dir, ray_origin);
     float c = dot(ray_origin, ray_origin) - r * r;
 
-    float det = b*b - 2.0 * a_2 * c; 
-    vec2 return_vec = vec2(-99., -99.);
+    float det = b*b - 2.0 * a_2 * c;
+    vec2 return_vec = vec2(0., 0.);
     if (det == 0){
-        return_vec[0] = -b / a_2; 
-    } else if (det > 0) { 
+        return_vec[0] = -b / a_2;
+    } else if (det > 0) {
         return_vec[0] = (-b - sqrt(det)) / a_2;
         return_vec[1] = (-b + sqrt(det)) / a_2;
     }
@@ -184,30 +184,52 @@ void main()
         if (t_temp2[ipt] > t0){
             if (t_temp2[ipt] < t1){
             t_control_points[i_control] = t_temp2[ipt];
-            i_control += 1; 
+            i_control += 1;
             }
         }
     }
 
-    t_temp2 = get_ray_sphere_intersection(left_edge[id_r], camera_pos_0, dir);    
+    t_temp2 = get_ray_sphere_intersection(left_edge[id_r], camera_pos_0, dir);
     for (int ipt=0;ipt<2;++ipt)
     {
         // if (t_temp2[ipt] > t0 && t_temp2[ipt] < t1){
         if (t_temp2[ipt] > t0){
             if (t_temp2[ipt] < t1){
             t_control_points[i_control] = t_temp2[ipt];
-            i_control += 1; 
+            i_control += 1;
             }
         }
     }
 
-    output_color = vec4(i_control / 4.0,0,0,1.0);
-    // if (i_control > 0){ 
-    //     output_color = vec4(i_control/4.0,0,0,1.0);       
-    //     // t0 = min(t_control_points[0], t_control_points[1]);
-    //     // t1 = max(t_control_points[0], t_control_points[1]);
-    // } 
-    return;
+    float bigval = 10000000000000000.;
+    float min_nonzero = bigval;
+    float max_nonzero = -1.0;
+    for (int ipt=0;ipt<4;++ipt)
+    {
+        if (t_control_points[ipt] > 0){
+            min_nonzero = min(min_nonzero, t_control_points[ipt]);
+            max_nonzero = max(max_nonzero, t_control_points[ipt]);
+        }
+
+    }
+
+    if (min_nonzero < bigval){
+        t0 = max(min_nonzero, t0);
+    }
+
+    if (max_nonzero > min_nonzero){
+        t1 = min(max_nonzero, t1);
+    }
+
+
+
+    // output_color = vec4(i_control / 4.0,0,0,1.0);
+    // // if (i_control > 0){
+    // //     output_color = vec4(i_control/4.0,0,0,1.0);
+    // //     // t0 = min(t_control_points[0], t_control_points[1]);
+    // //     // t1 = max(t_control_points[0], t_control_points[1]);
+    // // }
+    // return;
     #endif
 
     // Some more discussion of this here:

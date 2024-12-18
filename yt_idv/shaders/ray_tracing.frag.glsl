@@ -85,7 +85,7 @@ vec2 quadratic_eval(float b, float a_2, float c){
     det = det * det_is_nonneg;
     // do the calculation
     vec2 return_vec;
-    return_vec = vec2((b - sqrt(det)) / a_2 * det_is_nonneg + null_val, (b + sqrt(det)) / a_2 * det_is_nonneg + null_val);
+    return_vec = vec2((-b - sqrt(det)) / a_2 * det_is_nonneg + null_val, (-b + sqrt(det)) / a_2 * det_is_nonneg + null_val);
     // override the second return if det is 0.
     return_vec[1] = return_vec[1] * (1. - det_is_zero)  - 99. * det_is_zero;
 

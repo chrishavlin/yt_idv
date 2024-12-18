@@ -36,26 +36,18 @@ vec3 scale_cart(vec3 v) {
 vec3 cart_to_sphere_vec3(vec3 v) {
     // transform a single point in cartesian coords to spherical
     vec3 vout;
-    vec3 vsc = scale_cart(v); // re-scaled cartesian
+    float phi;
+    vec3 vsc = v;
 
     // in yt, phi is the polar angle from (0, 2pi), theta is the azimuthal
     // angle (0, pi). the id_ values below are uniforms that depend on the
     // yt dataset coordinate ordering, cart_bbox_* variables are also uniforms
-    float x = v[0] * cart_bbox_max_width + cart_bbox_le[0];
-    float y = v[1] * cart_bbox_max_width + cart_bbox_le[1];
-    float z = v[2] * cart_bbox_max_width + cart_bbox_le[2];
     vout[id_r] = vsc[0] * vsc[0] + vsc[1] * vsc[1] + vsc[2] * vsc[2];
     vout[id_r] = sqrt(vout[id_r]);
     vout[id_theta] = acos(vsc[2] / vout[id_r]);
-    float phi = atan(vsc[1], vsc[0]);
-    // atan2 returns -pi to pi, adjust to (0, 2pi)
-    if (phi < 0 ){
-        phi = phi + 2.0 * PI;
-    }
-    vout[id_phi] = phi;
-
+    phi = atan(vsc[1], vsc[0]); // atan will retrun in -pi/2 to pi/2
+    vout[id_phi] = phi + 2.0 * PI * float(phi < 0.0);
     return vout;
-
 }
 
 float get_ray_plane_intersection(vec3 p_normal, float p_constant, vec3 ray_origin, vec3 ray_dir)
@@ -70,9 +62,9 @@ float get_ray_plane_intersection(vec3 p_normal, float p_constant, vec3 ray_origi
 
 vec2 quadratic_eval(float b, float a_2, float c){
     // evalulate the quadratic equation
-    //    (b +/- sqrt(b^2 - 4*a*c)) / (2 * a)
+    //    (-b +/- sqrt(b^2 - 4*a*c)) / (2 * a)
     // or, in terms of the inputs to this function:
-    //    (b +/- sqrt(b^2 - 2*a_2*c)) / 2_a
+    //    (-b +/- sqrt(b^2 - 2*a_2*c)) / a_2
     //
     // Always returns vector of 2 values, but if the determinate (b^2 - 4ac) is:
     // negative: both values will be null placeholders, -99.
@@ -90,14 +82,10 @@ vec2 quadratic_eval(float b, float a_2, float c){
     float det_is_nonneg = 1.0 * float(det >= 0.);
     float det_is_zero = 1.0 * float(det == 0.);
     float null_val = -99. *  (1. - det_is_nonneg); // -99. if negative, 1.0 if positive or 0.
-
-    // pre-compute factor quantities that are used twice
-    det = sqrt(det)/a_2;
-    b = -1. * b/a_2;
-
+    det = det * det_is_nonneg;
     // do the calculation
     vec2 return_vec;
-    return_vec = vec2((b - det)*det_is_nonneg + null_val, (b + det)*det_is_nonneg + null_val);
+    return_vec = vec2((b - det) / a_2 * det_is_nonneg + null_val, (b + det) / a_2 * det_is_nonneg + null_val);
     // override the second return if det is 0.
     return_vec[1] = return_vec[1] * (1. - det_is_zero)  - 99. * det_is_zero;
 
@@ -106,14 +94,10 @@ vec2 quadratic_eval(float b, float a_2, float c){
 
 vec2 get_ray_sphere_intersection(float r, vec3 ray_origin, vec3 ray_dir)
 {
-    float dir_dot_dir = dot(ray_dir, ray_dir);
-    float ro_dot_ro = dot(ray_origin, ray_origin);
-    float dir_dot_ro = dot(ray_dir, ray_origin);
-    float rsq = r * r; // could be calculated in vertex shader
-
-    float a_2 = 2.0 * dir_dot_dir;
-    float b = 2.0 * dir_dot_ro;
-    float c =  ro_dot_ro - rsq;
+    // assumes spehre is centered at (x, y, z) = (0, 0, 0)
+    float a_2 = 2.0 * dot(ray_dir, ray_dir);
+    float b = 2.0 * dot(ray_dir, ray_origin);
+    float c = dot(ray_origin, ray_origin) - r * r;
 
     return quadratic_eval(b, a_2, c);
 }
@@ -153,8 +137,11 @@ vec2 get_ray_cone_intersection(float theta, vec3 ray_origin, vec3 ray_dir)
 }
 
 int store_temp_intx(int n_extra, vec4 t_extra, float t_temp, float t0, float t1) {
-
-    if (t_temp > t0 && t_temp < t1){
+    // store a possible intersection with a spherical volume element primitive
+    // geometry if it falls within the initial t range from the cartesian bounding
+    // box intersection
+    // if (t_temp > t0 && t_temp < t1){
+    if (t_temp > 0.){
         t_extra[n_extra] = t_temp;
         n_extra += 1;
     }
@@ -195,12 +182,19 @@ void main()
     // Obtain screen coordinates
     // https://www.opengl.org/wiki/Compute_eye_space_from_window_space#From_gl_FragCoord
     vec3 ray_position = v_model.xyz;
+    vec3 camera_pos_data = camera_pos.xyz;
+    #ifdef SPHERICAL_GEOM
+    // this ensures any bounding box scaling is accounted for, which is required
+    // for the ray intersections with the spherical volume element
+    ray_position = scale_cart(ray_position);
+    camera_pos_data = scale_cart(camera_pos_data);
+    #endif
     vec3 ray_position_native;
 
     output_color = vec4(0.);
 
     // Five samples
-    vec3 dir = -normalize(camera_pos.xyz - ray_position);
+    vec3 dir = -normalize(camera_pos_data - ray_position);
     dir = max(abs(dir), 0.0001) * sign(dir);
     vec4 curr_color = vec4(0.0);
 
@@ -210,15 +204,15 @@ void main()
     vec3 idir = 1.0/dir;
     vec3 tl, tr, dx_cart;
     #ifdef SPHERICAL_GEOM
-    tl = (left_edge_cart - camera_pos)*idir;
-    tr = (right_edge_cart - camera_pos)*idir;
-    dx_cart = right_edge_cart - left_edge_cart;
+    tl = (scale_cart(left_edge_cart) - camera_pos_data)*idir;
+    tr = (scale_cart(right_edge_cart) - camera_pos_data)*idir;
+    dx_cart = scale_cart(right_edge_cart) - scale_cart(left_edge_cart);
     #else
     tl = (left_edge - camera_pos)*idir;
     tr = (right_edge - camera_pos)*idir;
     dx_cart = dx;
     #endif
-    vec3 step_size = dx_cart/ sample_factor;
+    vec3 step_size = dx_cart / sample_factor;
 
     vec3 tmin, tmax;
     bvec3 temp_x, temp_y;
@@ -245,36 +239,38 @@ void main()
     int n_extra = 0;
     float t2 = -99.0;
     float t3 = -99.0;
-    vec3 ray_position_xyz = scale_cart(ray_position);
 
-    // arg... dir, ray_position_xyz sacling needs to be handled probably?
-    t_temp2 = get_ray_sphere_intersection(right_edge[id_r], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
-    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
+    // outer sphere
+    t_temp2 = get_ray_sphere_intersection(right_edge[id_r], ray_position, dir);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
-    t_temp2 = get_ray_sphere_intersection(left_edge[id_r], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
-    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
+    // inner sphere
+    t_temp2 = get_ray_sphere_intersection(left_edge[id_r], ray_position, dir);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
-    t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_le), phi_plane_le[3], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
-    t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_re), phi_plane_re[3], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    // the phi-normal planes
+    t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_le), phi_plane_le[3], ray_position, dir);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_re), phi_plane_re[3], ray_position, dir);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
 
-    t_temp2 = get_ray_cone_intersection(right_edge[id_theta], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
-    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
+    // the fixed-theta cones
+    t_temp2 = get_ray_cone_intersection(right_edge[id_theta], ray_position, dir);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
-    t_temp2 = get_ray_cone_intersection(left_edge[id_theta], ray_position_xyz, dir);
-    store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
-    store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
+    t_temp2 = get_ray_cone_intersection(left_edge[id_theta], ray_position, dir);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
+    n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
     // at this point, t_control_points will contain 1, 2 or 4 intersections that fall within
     // the bounding cartesian box and are guaranteed to be > 0 if they are set.
-    if (n_extra == 1) {
-        // only hits the cusp of the outer radius, lets just drop it...
-        discard;
-    }
+    // if (n_extra == 1) {
+    //     // only hits the cusp of the outer radius, lets just drop it...
+    //     discard;
+    // }
 
     // now sort the t_control_points: this is probably not as efficient as it could be, but it will work.
     float full_max = max_of_vec4(t_control_points);
@@ -295,8 +291,12 @@ void main()
 
     t_control_points = vec4(full_min, mid_min, mid_max, full_max);
     // t_control_points now ordered low to high. If there are only two intersections,
-    // t_control_points[0] t_control_points t_extra[1] will both be -99, which is OK for the ray tracing
+    // t_control_points[0] and t_control_points[1] will both be -99, which is OK for the ray tracing
     // algorithim below.
+
+    // override for now
+    t_control_points[0] = t0;
+    t_control_points[1] = t1;
 
     #else
 
@@ -304,6 +304,13 @@ void main()
     t_control_points[1] = t1;
 
     #endif
+    // if (n_extra > 1)
+    // {
+    //     output_color = vec4(.2, 0., 1., 1);
+    //     return;
+    // }
+    // output_color = vec4(0.);
+    // return;
 
     // setup texture coordinates (always in native coordinates)
     vec3 range = (right_edge + dx/2.0) - (left_edge - dx/2.0);
@@ -338,8 +345,8 @@ void main()
         t1 = t_control_points[ipart + 1 + 2 * ipart]; // index 1 or 3
 
         t0 = max(t0, 0.0); // if t0 = -99., will have t > t1 and loop wont run below.
-        p0 = camera_pos.xyz + dir * t0;
-        p1 = camera_pos.xyz + dir * t1;
+        p0 = camera_pos_data + dir * t0;
+        p1 = camera_pos_data + dir * t1;
         t = t0;
 
         ray_position = p0;
@@ -363,7 +370,7 @@ void main()
 
             if (sampled) {
                 ever_sampled = true;
-                v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
+                v_clip_coord = projection * modelview * vec4(v_model.xyz, 1.0);
                 f_ndc_depth = v_clip_coord.z / v_clip_coord.w;
                 depth = min(depth, (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5);
             }

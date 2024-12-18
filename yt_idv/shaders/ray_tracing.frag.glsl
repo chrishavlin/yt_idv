@@ -85,7 +85,7 @@ vec2 quadratic_eval(float b, float a_2, float c){
     det = det * det_is_nonneg;
     // do the calculation
     vec2 return_vec;
-    return_vec = vec2((b - det) / a_2 * det_is_nonneg + null_val, (b + det) / a_2 * det_is_nonneg + null_val);
+    return_vec = vec2((b - sqrt(det)) / a_2 * det_is_nonneg + null_val, (b + sqrt(det)) / a_2 * det_is_nonneg + null_val);
     // override the second return if det is 0.
     return_vec[1] = return_vec[1] * (1. - det_is_zero)  - 99. * det_is_zero;
 
@@ -241,27 +241,27 @@ void main()
     float t3 = -99.0;
 
     // outer sphere
-    t_temp2 = get_ray_sphere_intersection(right_edge[id_r], ray_position, dir);
+    t_temp2 = get_ray_sphere_intersection(right_edge[id_r], camera_pos_data, dir);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
     // inner sphere
-    t_temp2 = get_ray_sphere_intersection(left_edge[id_r], ray_position, dir);
+    t_temp2 = get_ray_sphere_intersection(left_edge[id_r], camera_pos_data, dir);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
     // the phi-normal planes
-    t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_le), phi_plane_le[3], ray_position, dir);
+    t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_le), phi_plane_le[3], camera_pos_data, dir);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
-    t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_re), phi_plane_re[3], ray_position, dir);
+    t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_re), phi_plane_re[3], camera_pos_data, dir);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
 
     // the fixed-theta cones
-    t_temp2 = get_ray_cone_intersection(right_edge[id_theta], ray_position, dir);
+    t_temp2 = get_ray_cone_intersection(right_edge[id_theta], camera_pos_data, dir);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
-    t_temp2 = get_ray_cone_intersection(left_edge[id_theta], ray_position, dir);
+    t_temp2 = get_ray_cone_intersection(left_edge[id_theta], camera_pos_data, dir);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[0], t0, t1);
     n_extra = store_temp_intx(n_extra, t_control_points, t_temp2[1], t0, t1);
 
@@ -295,8 +295,8 @@ void main()
     // algorithim below.
 
     // override for now
-    t_control_points[0] = t0;
-    t_control_points[1] = t1;
+    // t_control_points[0] = t0;
+    // t_control_points[1] = t1;
 
     #else
 
@@ -370,7 +370,7 @@ void main()
 
             if (sampled) {
                 ever_sampled = true;
-                v_clip_coord = projection * modelview * vec4(v_model.xyz, 1.0);
+                v_clip_coord = projection * modelview * vec4(ray_position, 1.0);
                 f_ndc_depth = v_clip_coord.z / v_clip_coord.w;
                 depth = min(depth, (1.0 - 0.0) * 0.5 * f_ndc_depth + (1.0 + 0.0) * 0.5);
             }

@@ -552,7 +552,12 @@ def phi_normal_planes(edge_coordinates, axis_id, cast_type: str = None):
     z_hat = np.array([0, 0, 1])
     # cross product is vectorized, result is shape (N, 3):
     normal_vec = np.cross(xyz, z_hat)
-    # dot product is not vectorized, do it manually via an elemntwise multiplication
+    # ensure the results are unit vectors
+    mag = np.linalg.norm(normal_vec, axis=1)
+    normal_vec = normal_vec / mag[:, None]
+
+    # calculate d using a point on the plane 
+    # dot product is not vectorized, do it manually via an elementwise multiplication
     # then summation. result will have shape (N,)
     d = (normal_vec * xyz).sum(axis=1)  # manual dot product
 

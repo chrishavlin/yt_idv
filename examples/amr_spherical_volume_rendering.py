@@ -9,8 +9,8 @@ import yt_idv
 # theta is the angle from north (0 to pi)
 # coord ordering here will be r, phi, theta
 bbox_options = {
-    "partial": np.array([[0.5, 1.0], [0.0, np.pi / 3], [np.pi / 4, np.pi / 2]]),
-    "whole": np.array([[0.0, 1.0], [0.0, 2 * np.pi], [0, np.pi]]),
+    "partial": np.array([[0.5, 1.0], [0.01, np.pi / 3], [np.pi / 4, np.pi / 2 -.01]]),
+    "whole": np.array([[0.0, 1.0], [0.0+0.01, 2 * np.pi - 0.01], [0+0.01, np.pi-0.01]]),
     "shell": np.array([[0.7, 1.0], [0.0, 2 * np.pi], [0, np.pi]]),
     "north_hemi": np.array([[0.1, 1.0], [0.0, 2 * np.pi], [0, 0.5 * np.pi]]),
     "north_shell": np.array([[0.8, 1.0], [0.0, 2 * np.pi], [0, 0.5 * np.pi]]),

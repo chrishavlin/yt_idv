@@ -175,8 +175,12 @@ class BlockCollection(SceneData):
 
             # pre-calculate the phi-normal planes
             axis_id = self.data_source.ds.coordinates.axis_id
-            phi_plane_le = phi_normal_planes(le, axis_id, cast_type="f4")
-            phi_plane_re = phi_normal_planes(re, axis_id, cast_type="f4")
+            phi_plane_le = _phi_normal_planes(le, axis_id, cast_type="f4")
+            phi_plane_re = _phi_normal_planes(re, axis_id, cast_type="f4")            
+            print(le, axis_id['phi'])
+            print(phi_plane_le)
+            print(re)
+            print(phi_plane_re)
             self.vertex_array.attributes.append(
                 VertexAttribute(name="phi_plane_le", data=phi_plane_le)
             )
@@ -221,3 +225,54 @@ class BlockCollection(SceneData):
             )
             self.texture_objects[vbo_i] = data_tex
             self.bitmap_objects[vbo_i] = bitmap_tex
+
+
+def _phi_normal_planes(edge_coordinates, axis_id, cast_type: str = None):
+    # for spherical geometries, calculates the cartesian normals and constants
+    # defining the planes normal to a fixed-phi value. The phi normal plane for
+    # a given spherical coordinate (r, theta, phi) will contain the given
+    # coordinate and the z-axis.
+    #
+    # edge_coordinates: 3D array of shape (N, 3) containing the spherical
+    #                   coordinates for which we want the phi-normal.
+    # axis_id: dictionary that maps the spherical coordinate axis names to the
+    #          index number.
+
+    print("phi_normal_planes")
+    
+    phi = edge_coordinates[:, axis_id["phi"]]  # 0 to 2pi
+    theta = edge_coordinates[:, axis_id["theta"]]  # 0 to pi
+    r = edge_coordinates[:, axis_id["r"]]
+
+    print(phi, theta, r)
+
+    # get the cartesian values of the coordinates
+    z = r * np.cos(theta)
+    r_xy = r * np.sin(theta)
+    x = r_xy * np.cos(phi)
+    y = r_xy * np.sin(phi)
+    xyz = np.column_stack([x, y, z])
+    
+    print(xyz)
+
+    # construct the planes
+    z_hat = np.array([0, 0, 1])
+    # cross product is vectorized, result is shape (N, 3):
+    normal_vec = np.cross(z_hat, xyz)
+    
+    # ensure the results are unit vectors
+    mag = np.linalg.norm(normal_vec, axis=1)
+    normal_vec = normal_vec / mag[:, None]
+
+    print('nhat', normal_vec)
+
+    # calculate d using a point on the plane 
+    # dot product is not vectorized, do it manually via an elementwise multiplication
+    # then summation. result will have shape (N,)
+    d = (normal_vec * xyz).sum(axis=1)  # manual dot product
+
+    print('d', d)
+    normals_d = np.column_stack([normal_vec, d])
+    if cast_type is not None:
+        normals_d = normals_d.astype(cast_type)
+    return normals_d

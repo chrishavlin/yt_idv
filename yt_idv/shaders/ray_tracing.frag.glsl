@@ -18,8 +18,8 @@ out vec4 output_color;
 
 bool within_bb(vec3 pos)
 {
-    bvec3 left =  greaterThanEqual(pos, left_edge);
-    bvec3 right = lessThanEqual(pos, right_edge);
+    bvec3 left =  greaterThanEqual(pos, left_edge-0.001);
+    bvec3 right = lessThanEqual(pos, right_edge+0.001);
     return all(left) && all(right);
 }
 
@@ -55,15 +55,15 @@ float get_ray_plane_intersection(vec3 p_normal, float p_constant, vec3 ray_origi
     // returns a single float. if the ray is parallel to the plane, will return a null value
     // of -99.
     float n_dot_u = dot(p_normal, ray_dir);
-    
+
     if (n_dot_u == 0.0){
         return -99.;
     } else {
         float n_dot_ro = dot(p_normal, ray_origin);
-        return (p_constant - n_dot_ro) / n_dot_u ; 
+        return (p_constant - n_dot_ro) / n_dot_u ;
     }
 
-    // float n_dot_is_zero = float(n_dot_u == 0.0);    
+    // float n_dot_is_zero = float(n_dot_u == 0.0);
     // return ((p_constant - n_dot_ro) / n_dot_u) * (1.0 - n_dot_is_zero) - 99. * n_dot_is_zero;
 }
 
@@ -91,11 +91,11 @@ vec2 quadratic_eval(float b, float a_2, float c){
     // float null_val = -99. *  (1. - det_is_nonneg); // -99. if negative, 1.0 if positive or 0.
     // det = det * det_is_nonneg;
     // do the calculation
-    if (det <= 0.){ 
+    if (det <= 0.){
         return vec2(-99., -99.);
-    } else if (det == 0){ 
+    } else if (det == 0){
         return vec2(-b / a_2, -99);
-    } else { 
+    } else {
         return vec2((-b - sqrt(det)) / a_2, (-b + sqrt(det)) / a_2);
     }
     // vec2 return_vec;
@@ -120,20 +120,20 @@ vec2 get_ray_cone_intersection(float theta, vec3 ray_origin, vec3 ray_dir)
 {
     // returns a vec2 containing 0, 1 or 2 intersections. Null values are indicated
     // by negative placeholder numbers.
-    // theta : the fixed theta value defining the z-aligned cone 
-    // ray_origin : ray origin 
-    // ray_dir : ray direction 
+    // theta : the fixed theta value defining the z-aligned cone
+    // ray_origin : ray origin
+    // ray_dir : ray direction
     //
     // note: it is possible to have real solutions that intersect the shadow cone
     // and not the actual cone. but those values will end up outside the t range
     // given by intersection with the bounding cartesian box, so we do not need
     // to handle them explicitly here.
-    // 
-    // See the following for some more background 
-    // https://github.com/chrishavlin/miscellaneous_python/blob/main/notebooks/spherical_volumes.ipynb    
+    //
+    // See the following for some more background
+    // https://github.com/chrishavlin/miscellaneous_python/blob/main/notebooks/spherical_volumes.ipynb
 
     float costheta;
-    vec3 vhat; // cone axis 
+    vec3 vhat; // cone axis
 
     // if theta is past PI/2, the cone will point in negative z and the
     // half angle should be measured from the -z axis, not +z.
@@ -141,9 +141,9 @@ vec2 get_ray_cone_intersection(float theta, vec3 ray_origin, vec3 ray_dir)
     // the cone becomes a plane in x-y.
     // float theta_pi2 = 1.0 - 2.0 * float(theta > PI/2.0); // 1.0 if theta <= PI/2, -1 else
     float theta_pi2;
-    if (theta <= PI/ 2.0){ 
+    if (theta <= PI/ 2.0){
         theta_pi2 = 1.0;
-        vhat = vec3(0., 0., 1.0); 
+        vhat = vec3(0., 0., 1.0);
     } else {
         theta_pi2 = -1.0;
         vhat = vec3(0., 0., -1.0);
@@ -177,13 +177,13 @@ int store_temp_intx(int n_extra, vec4 t_extra, float t_temp, float t0, float t1)
 
 
 float max_of_vec3(vec4 in_vec){
-    float temp_val1 = max(in_vec[0], in_vec[1]);    
+    float temp_val1 = max(in_vec[0], in_vec[1]);
     return max(temp_val1, in_vec[2]);
 }
 
 
 float min_of_vec3(vec4 in_vec){
-    float temp_val1 = min(in_vec[0], in_vec[1]);    
+    float temp_val1 = min(in_vec[0], in_vec[1]);
     return min(temp_val1, in_vec[2]);
 }
 
@@ -281,8 +281,6 @@ void main()
     // there are 0, 1, 2 or 4 intersections possible. 4 intersections is annoying.
     vec2 t_temp2;
     int n_extra = 0;
-    float t2 = -99.0;
-    float t3 = -99.0;
 
     // outer sphere
     t_temp2 = get_ray_sphere_intersection(right_edge[id_r], camera_pos_data, dir);
@@ -303,7 +301,7 @@ void main()
     if (t_temp2[1] >= t0 && t_temp2[1] <= t1){
         t_control_points[n_extra] = t_temp2[1];
         n_extra = n_extra + 1;
-    }    
+    }
 
     // the phi-normal planes
     t_temp2[0] = get_ray_plane_intersection(vec3(phi_plane_le), phi_plane_le[3], camera_pos_data, dir);
@@ -326,7 +324,7 @@ void main()
     if (t_temp2[1] >= t0 && t_temp2[1] <= t1){
         t_control_points[n_extra] = t_temp2[1];
         n_extra = n_extra + 1;
-    }   
+    }
 
     t_temp2 = get_ray_cone_intersection(left_edge[id_theta], camera_pos_data, dir);
     if (t_temp2[0] >= t0 && t_temp2[0] <= t1){
@@ -338,26 +336,22 @@ void main()
         n_extra = n_extra + 1;
     }
 
-
-    // float full_min;
-    // float full_max;
-
     if (n_extra == 2){
         t0 = min(t_control_points[0], t_control_points[1])+.0001;
         t1 = max(t_control_points[0], t_control_points[1])-.0001;
-    } else if (n_extra == 4){ 
-        t1 = max_of_vec4(t_control_points)-.0001;
+    } else if (n_extra == 4){
         t0 = min_of_vec4(t_control_points)+.0001;
+        t1 = max_of_vec4(t_control_points)-.0001;
     } else if (n_extra == 3){
-        t1 = max_of_vec3(t_control_points)-.0001;
         t0 = min_of_vec3(t_control_points)+.0001;
+        t1 = max_of_vec3(t_control_points)-.0001;
     } else if (n_extra == 1){
         // should sample once at t0.
         t0 = t_control_points[0]+.0001;
-        t1 = t0 + tdelta * 0.01; 
+        t1 = t0 + tdelta * 0.01;
     } else if (n_extra == 0){
         discard;
-    } else { 
+    } else {
         discard;
     }
 

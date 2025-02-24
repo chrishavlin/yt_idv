@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import yt
 import yt.testing
+from numpy.testing import assert_equal
 
 import yt_idv
 from yt_idv import shader_objects
@@ -214,3 +215,15 @@ def test_shader_programs(osmesa_empty, shader_name):
         )
         assert isinstance(colormap_fragment, shader_objects.Shader)
         _ = shader_objects.ShaderProgram(colormap_vertex, colormap_fragment)
+
+
+def test_camera_dict_update(osmesa_fake_amr):
+    pos = [0.5, 2.0, 3.0]
+    osmesa_fake_amr.scene.camera.set_position(pos)
+
+    cdict = osmesa_fake_amr.scene.camera.dict()
+    assert_equal(cdict["position"], pos)
+
+    osmesa_fake_amr.scene.camera.set_position([4.0, 4.0, 4])
+    osmesa_fake_amr.scene.camera.update(**cdict)
+    assert_equal(osmesa_fake_amr.scene.camera.position, pos)

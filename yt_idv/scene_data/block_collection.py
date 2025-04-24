@@ -160,6 +160,8 @@ class BlockCollection(SceneData):
             # spherical coords can be calculated.
             self.cart_bbox_max_width = max_wid
             self.cart_bbox_le = domain_le
+            self.cart_bbox_re = domain_re
+            self.cart_bbox_center = (domain_re + domain_le) / 2.0
 
             self.vertex_array.attributes.append(
                 VertexAttribute(name="le_cart", data=le_cart.astype("f4"))

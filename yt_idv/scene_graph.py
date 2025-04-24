@@ -268,15 +268,30 @@ class SceneGraph(traitlets.HasTraits):
         scene = SceneGraph(camera=c)
         if field is not None:
             scene.add_volume(data_source, field, no_ghost=no_ghost)
+
+        if str(ds.geometry) != "cartesian":
+            # update the camera position based on scene data.
+            _update_camera_from_data_noncartesian_object(c, scene.data_objects[-1])
+
         return scene
+
+
+def _update_camera_from_data_noncartesian_object(camera, data_object):
+    # if the data_object is handling non-cartesian data, it should have
+    # these cart_bbox* attributes defined.
+    focus = data_object.cart_bbox_center
+    position = focus + data_object.cart_bbox_max_width
+    upvector = focus
+    camera.update(focus=focus, position=position, up=upvector)
+    camera._update_matrices()
 
 
 def _get_camera_for_geometry(data_source, ds):
 
     if str(ds.geometry) == "spherical":
-        # always return the in-screen coordinate focus here. The shader
-        # will handle transforming to the expected full cartesian and
-        # spherical coordinates
+        # note: these are essentially dummy parameters: camera settings
+        # need to be updated after the data objects are loaded so that
+        # we have the cartesian-bounds of the non-cartesian geometries.
         center = np.array([0.5, 0.5, 0.5])
         wid = np.array([1.0, 1.0, 1.0])
         pos = center + 1.5 * wid

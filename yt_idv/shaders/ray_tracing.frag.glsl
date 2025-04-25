@@ -120,6 +120,101 @@ void main()
     float tdelta = min(temp_t.x, temp_t.y);
     float t = t0;
 
+    bool within_el = true;
+
+    #ifdef SPHERICAL_GEOM
+    // additional refiniment of t0, t1 for spherical geometry
+    // this utilizes some iterative, adaptive stepping to improve
+    // the initial t0, t1 that comes from the slab test with the
+    // bounding cartesian boxes.
+
+    // check if starting t0 is already within the element
+    ray_position = p0;
+    ray_position_native = cart_to_sphere_vec3(ray_position);
+    within_el = within_bb(ray_position_native);
+    int maxiters = 500;
+    int max_refines = 200;
+
+    float in_el = 0.0;
+    int iters = 0;
+    int irefines = 0;
+    float tdeltaprime = tdelta;
+    float tprime = 0.0;
+    float tdeltaprime_refined = 0.0;
+
+    tprime = t0;
+    in_el = float(within_el);
+
+    while (irefines < max_refines && iters < maxiters) {
+        // project forward
+        tprime = t0 + tdeltaprime;
+
+        // get new ray position
+        ray_position = camera_pos.xyz + dir * tprime;
+        ray_position_native = cart_to_sphere_vec3(ray_position);
+        in_el = float(within_bb(ray_position_native));
+
+        // two conditions:
+        // (1) if new position is inside, do not step forward. instead,
+        //     cut the tdelta in half, re-project from t0. also bump the
+        //     refinement count
+        // (2) if the new position is outside, keep stepping
+        t0 = t0 * in_el + tprime * (1.0 - in_el);
+        tdeltaprime_refined = tdeltaprime / 2.0;
+        tdeltaprime = tdeltaprime_refined * in_el + tdeltaprime * (1.0 - in_el);
+        irefines = irefines + int(in_el);
+        iters += 1;
+    }
+
+    // take the final t0prime on loop exit, increment again so that we are
+    // just inside the element
+    t0 = tprime + 2. * tdeltaprime;
+    t = t0;
+    p0 = camera_pos.xyz + dir * t0;
+
+
+    // now the same for t1
+    ray_position = p1;
+    ray_position_native = cart_to_sphere_vec3(ray_position);
+    within_el = within_bb(ray_position_native);
+
+
+    tprime = t1;
+    in_el = float(within_el);
+    tdeltaprime = tdelta;
+    iters = 0;
+    irefines = 0;
+
+    while (irefines < max_refines && iters < maxiters) {
+        // project back along ray from t1
+        tprime = t1 - tdeltaprime;
+
+        // get new ray position
+        ray_position = camera_pos.xyz + dir * tprime;
+        ray_position_native = cart_to_sphere_vec3(ray_position);
+        in_el = float(within_bb(ray_position_native));
+
+        t1 = t1 * in_el + tprime * (1.0 - in_el);
+        tdeltaprime_refined = tdeltaprime / 2.0;
+        tdeltaprime = tdeltaprime_refined * in_el + tdeltaprime * (1.0 - in_el);
+        irefines = irefines + int(in_el);
+        iters += 1;
+    }
+
+    // take the final t0prime on loop exit, increment again so that we are
+    // just inside the element
+    t1 = tprime - 2.0 * tdeltaprime;
+    p1 = camera_pos.xyz + dir * t1;
+
+
+    if (t0 > t1) {
+        discard;
+    }
+    tdelta = (t1 - t0) / sample_factor;
+
+    #endif
+
+
     vec3 range = (right_edge + dx/2.0) - (left_edge - dx/2.0);  // texture range in native coords
     vec3 nzones = range / dx;
     vec3 ndx = 1.0/nzones;
@@ -128,7 +223,7 @@ void main()
 
     bool sampled;
     bool ever_sampled = false;
-    bool within_el = true;
+
 
     vec4 v_clip_coord;
     float f_ndc_depth;

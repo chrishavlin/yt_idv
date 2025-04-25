@@ -281,7 +281,12 @@ def _update_camera_from_data_noncartesian_object(camera, data_object):
     # these cart_bbox* attributes defined.
     focus = data_object.cart_bbox_center
     position = focus + data_object.cart_bbox_max_width
-    upvector = focus
+    if np.all(focus == 0.0):
+        upvector = np.array([0.0, 0.0, 1.0])
+    else:
+        upvector = focus
+    print(focus, position, upvector)
+
     camera.update(focus=focus, position=position, up=upvector)
     camera._update_matrices()
 

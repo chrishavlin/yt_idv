@@ -48,18 +48,15 @@ void main()
     vec3 idir = 1.0/dir;
     vec3 tl = (left_edge - camera_pos)*idir;
     vec3 tr = (right_edge - camera_pos)*idir;
-    vec3 tmin, tmax;
-    bvec3 temp_x, temp_y;
-    // These 't' prefixes actually mean 'parameter', as we use in grid_traversal.pyx.
+    float t0, t1;
 
-    tmax = vec3(lessThan(dir, vec3(0.0)))*tl+vec3(greaterThanEqual(dir, vec3(0.0)))*tr;
-    tmin = vec3(greaterThanEqual(dir, vec3(0.0)))*tl+vec3(lessThan(dir, vec3(0.0)))*tr;
-    vec2 temp_t = max(tmin.xx, tmin.yz);
-    float t0 = max(temp_t.x, temp_t.y);
+    t0 = min(tl[0], tr[0]);
+    t1 = max(tl[0], tr[0]);
+    for (int i=1; i<3; i++){
+        t0 = max(t0, min(tl[i], tr[i]));
+        t1 = min(t1, max(tl[i], tr[i]));
+    }
 
-    // smallest tmax
-    temp_t = min(tmax.xx, tmax.yz);
-    float t1 = min(temp_t.x, temp_t.y);
     t0 = max(t0, 0.0);
     if (t1 <= t0) discard;
 
@@ -71,7 +68,7 @@ void main()
 
     vec3 dxidir = abs(idir)  * step_size;
 
-    temp_t = min(dxidir.xx, dxidir.yz);
+    vec2 temp_t = min(dxidir.xx, dxidir.yz);
 
     float tdelta = min(temp_t.x, temp_t.y);
     float t = t0;
@@ -97,7 +94,6 @@ void main()
         tex_curr_pos = (tex_curr_pos * (1.0 - ndx)) + ndx/2.0;
 
         sampled = sample_texture(tex_curr_pos, curr_color, tdelta, t, dir);
-
         if (sampled) {
             ever_sampled = true;
             v_clip_coord = projection * modelview * vec4(ray_position, 1.0);

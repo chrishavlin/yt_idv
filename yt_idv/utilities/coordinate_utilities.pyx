@@ -366,6 +366,54 @@ cdef class SphericalMixedCoordBBox(MixedCoordBBox):
         dxyz_i[2] = zri-zli
 
 
+cdef class GeodeticMixedCoordBBox(SphericalMixedCoordBBox):
+
+    # cdef:
+    #     np.float64_t radius_factor
+
+    # def __init__(self, np.float64_t r_o, int geodetic_type):
+    #     self.r_o = r_o
+    #     # geodetic_type is 0 for altitude , 1 for depth
+    #     if geodetic_type == 0:
+    #         # altitude
+    #         self.radius_factor = 1.0 * r_o
+    #     elif geodetic_type == 1:
+    #         # depth
+    #         self.radius_factor = -1.0 * r_o
+    #     elif geodetic_type == 2:
+    #         # radius
+    #         self.radius_factor = 0.0
+    #     else:
+    #         raise ValueError("radius_factor must be 0, 1 or 2")
+
+    cdef int get_cartesian_bbox(self,
+                        np.float64_t pos0,  # depth or altitude
+                        np.float64_t pos1,  # latitude
+                        np.float64_t pos2,  # longitude
+                        np.float64_t dpos0, # depth or altitude
+                        np.float64_t dpos1, # latitude
+                        np.float64_t dpos2, # longitude
+                        np.float64_t[3] xyz_i,
+                        np.float64_t[3] dxyz_i,
+                        ) noexcept nogil:
+
+        cdef np.float64_t r, pos1_rad, pos2_rad, dpos1_rad, dpos2_rad
+
+        # convert to radius
+        r = pos0 + 0.0  #self.radius_factor
+
+        # convert to radians
+        pos1_rad = pos1 * M_PI / 180.
+        dpos1_rad = dpos1 * M_PI / 180.
+        pos2_rad = pos2 * M_PI / 180.
+        dpos2_rad = pos1 * M_PI / 180.
+
+        cdef int result
+        result = super(GeodeticMixedCoordBBox, self).get_cartesian_bbox(r, pos1_rad, pos2_rad, dpos0, dpos1_rad, dpos2_rad, xyz_i, dxyz_i)
+        return result
+
+
+
 @cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)

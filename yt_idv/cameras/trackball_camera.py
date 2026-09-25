@@ -97,7 +97,7 @@ class TrackballCamera(BaseCamera):
         center, pos, near_plane = _get_camera_for_ds_geometry(ds)
 
         c = TrackballCamera(position=pos, focus=center, near_plane=near_plane)
-        c.update_orientation(0, 0, 0, 0)
+        c.set_orientation(c.orientation)
         return c
 
 

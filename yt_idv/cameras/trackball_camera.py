@@ -51,9 +51,14 @@ class TrackballCamera(BaseCamera):
         return np.array([x, -y, z])
 
     def update_orientation(self, start_x, start_y, end_x, end_y):
-        self.orientation = update_orientation(
-            self.orientation.astype("float64"), start_x, start_y, end_x, end_y
+        self.set_orientation(
+            update_orientation(
+                self.orientation.astype("float64"), start_x, start_y, end_x, end_y
+            )
         )
+
+    def set_orientation(self, orientation):
+        self.orientation = orientation
 
         rotation_matrix = quaternion_to_rotation_matrix(self.orientation)
         dp = np.linalg.norm(self.position - self.focus) * rotation_matrix[2]
@@ -63,7 +68,7 @@ class TrackballCamera(BaseCamera):
         self.view_matrix = get_lookat_matrix(self.position, self.focus, self.up)
         self._compute_matrices()
 
-    def _update_matrices(self):
+    def update_matrices(self):
         self.view_matrix = get_lookat_matrix(self.position, self.focus, self.up)
         self.orientation = rotation_matrix_to_quaternion(self.view_matrix[0:3, 0:3])
         self._compute_matrices()
@@ -85,7 +90,7 @@ class TrackballCamera(BaseCamera):
 
     def set_position(self, pos):
         self.position = pos
-        self._update_matrices()
+        self.update_matrices()
 
     @staticmethod
     def from_dataset(ds):

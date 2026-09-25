@@ -98,7 +98,7 @@ def test_slice_no_block_boundary_gaps(fake_amr_rc, near_plane):
 
     camera = fake_amr_rc.scene.camera
     camera.near_plane = near_plane
-    camera._update_matrices()
+    camera.update_matrices()
 
     assert _interior_gaps(fake_amr_rc.run()).sum() == 0
 

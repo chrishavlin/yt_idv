@@ -79,8 +79,8 @@ class BaseCamera(traitlets.HasTraits):
 
         The view matrix and orientation are deliberately left alone here:
         rebuilding them from position/focus/up would clobber trackball
-        rotations applied through update_orientation. Use _update_matrices
-        to rebuild everything explicitly.
+        rotations applied through update_orientation. Use update_matrices
+        or set_orientation to rebuild the view explicitly.
         """
         if self.held:
             return
@@ -89,7 +89,23 @@ class BaseCamera(traitlets.HasTraits):
     def _compute_matrices(self):
         pass
 
+    def update_matrices(self):
+        """Rebuild the view matrix from position, focus and up, then the projection.
+
+        Call this after setting position, focus or up directly. The orientation
+        quaternion is re-derived from the new view matrix.
+        """
+        pass
+
     def _update_matrices(self):
+        self.update_matrices()
+
+    def set_orientation(self, orientation):
+        """Set the orientation quaternion and re-derive position, up and the view.
+
+        The camera keeps its focus and its distance from the focus; position and
+        up are rotated to match the new orientation.
+        """
         pass
 
     def update_orientation(self, start_x, start_y, end_x, end_y):
@@ -146,6 +162,19 @@ class BaseCamera(traitlets.HasTraits):
         return cdict
 
     def update(self, **kwargs):
-        with self.hold_traits(self._compute_matrices):
+        """Set several traits at once and rebuild whatever they affect.
+
+        If orientation is given, position and up are re-derived from it (see
+        set_orientation). Otherwise, if any of position, focus or up is given,
+        the view is rebuilt from them (see update_matrices). Traits that only
+        feed the projection matrix trigger a projection rebuild alone.
+        """
+        if "orientation" in kwargs:
+            rebuild = lambda: self.set_orientation(self.orientation)  # noqa: E731
+        elif any(ky in kwargs for ky in ("position", "focus", "up")):
+            rebuild = self.update_matrices
+        else:
+            rebuild = self._compute_matrices
+        with self.hold_traits(rebuild):
             for ky, val in kwargs.items():
                 setattr(self, ky, val)

@@ -9,7 +9,7 @@ def camera():
     cam = TrackballCamera(
         position=np.array([0.5, 0.5, 2.5]), focus=np.array([0.5, 0.5, 0.5])
     )
-    cam._update_matrices()
+    cam.update_matrices()
     return cam
 
 
@@ -70,4 +70,59 @@ def test_update_rebuilds_projection_once(camera):
     assert len(calls) == 1
     assert not np.allclose(p0, camera.projection_matrix)
     assert camera.fov == 30.0 and camera.near_plane == 0.1 and camera.far_plane == 10.0
+    assert not camera.held
+
+
+def test_update_matrices_rebuilds_view_from_lookat(camera):
+    camera.update_orientation(0.0, 0.0, 0.3, 0.2)
+    v_dragged = camera.view_matrix.copy()
+
+    camera.focus = np.array([0.6, 0.4, 0.5])
+    assert np.array_equal(v_dragged, camera.view_matrix)
+
+    camera.update_matrices()
+    v_lookat = camera.view_matrix.copy()
+    assert not np.allclose(v_dragged, v_lookat)
+
+    camera.view_matrix = v_dragged
+    camera._update_matrices()
+    assert np.array_equal(camera.view_matrix, v_lookat)
+
+
+def test_set_orientation_syncs_position_up_and_view(camera):
+    focus0 = camera.focus.copy()
+    dist0 = np.linalg.norm(camera.position - camera.focus)
+
+    camera.update_orientation(0.0, 0.0, 0.3, 0.2)
+    q = camera.orientation.copy()
+    expected = {k: getattr(camera, k).copy() for k in ("position", "up", "view_matrix")}
+
+    camera.update_matrices()
+    camera.set_orientation(q)
+
+    assert np.array_equal(camera.orientation, q)
+    assert np.array_equal(camera.focus, focus0)
+    assert np.isclose(np.linalg.norm(camera.position - camera.focus), dist0)
+    for k, v in expected.items():
+        assert np.allclose(getattr(camera, k), v), k
+
+
+def test_update_picks_the_right_rebuild(camera):
+    camera.update_orientation(0.0, 0.0, 0.3, 0.2)
+    q = camera.orientation.copy()
+    v0 = camera.view_matrix.copy()
+
+    camera.update(fov=30.0)
+    assert np.array_equal(camera.orientation, q)
+    assert np.array_equal(camera.view_matrix, v0)
+
+    camera.update(focus=np.array([0.6, 0.4, 0.5]), fov=35.0)
+    assert not np.allclose(camera.view_matrix, v0)
+    assert not np.array_equal(camera.orientation, q)
+    assert camera.fov == 35.0
+
+    pos_before = camera.position.copy()
+    camera.update(orientation=q)
+    assert np.array_equal(camera.orientation, q)
+    assert not np.allclose(camera.position, pos_before)
     assert not camera.held

@@ -128,7 +128,7 @@ def test_projection_path_length_and_units(uniform_rc):
     camera.update(position=[0.5, 0.5, 20.0], focus=[0.5, 0.5, 0.5], up=[0.0, 1.0, 0.0])
     camera.fov = 3.0
     camera.far_plane = 100.0
-    camera._update_matrices()
+    camera.update_matrices()
     uniform_rc.scene.render()
 
     frb = component.rendered_image_plane()
@@ -160,7 +160,7 @@ def test_frb_geometry(uniform_rc):
     camera.update(position=[0.5, 0.5, 2.5], focus=[0.5, 0.5, 0.5], up=[0.0, 1.0, 0.0])
     camera.fov = 45.0
     camera.aspect_ratio = 1.0
-    camera._update_matrices()
+    camera.update_matrices()
     uniform_rc.scene.render()
 
     frb = component.rendered_image_plane()
@@ -215,7 +215,7 @@ def test_integrate_constant(constant_rc):
     camera.fov = 2.0
     camera.aspect_ratio = 1.0
     camera.far_plane = 100.0
-    camera._update_matrices()
+    camera.update_matrices()
     # the ray marcher overshoots the exit point by up to one step, which is a
     # 1 / (2 * 32 * sample_factor) error on a path of one code_length
     component.sample_factor = 8.0

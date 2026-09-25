@@ -161,21 +161,42 @@ class BaseCamera(traitlets.HasTraits):
 
         return cdict
 
-    def update(self, **kwargs):
-        """Set several traits at once and rebuild whatever they affect.
+    def update(
+        self,
+        position=None,
+        focus=None,
+        up=None,
+        fov=None,
+        near_plane=None,
+        far_plane=None,
+        aspect_ratio=None,
+    ):
+        """Set several traits at once, then rebuild the view and projection.
 
-        If any of position, focus or up is given, the view is rebuilt from them
-        and orientation is re-derived (see update_matrices), so a snapshot from
-        dict() round-trips exactly. If only orientation is given, position and
-        up are re-derived from it instead (see set_orientation). Traits that
-        only feed the projection matrix trigger a projection rebuild alone.
+        Traits left as None are untouched. The view matrix is rebuilt from
+        position, focus and up and the orientation quaternion is re-derived
+        from it (see update_matrices). To set the orientation directly, use
+        set_orientation instead.
         """
-        if any(ky in kwargs for ky in ("position", "focus", "up")):
-            rebuild = self.update_matrices
-        elif "orientation" in kwargs:
-            rebuild = lambda: self.set_orientation(self.orientation)  # noqa: E731
-        else:
-            rebuild = self._compute_matrices
-        with self.hold_traits(rebuild):
-            for ky, val in kwargs.items():
-                setattr(self, ky, val)
+        values = {
+            "position": position,
+            "focus": focus,
+            "up": up,
+            "fov": fov,
+            "near_plane": near_plane,
+            "far_plane": far_plane,
+            "aspect_ratio": aspect_ratio,
+        }
+        with self.hold_traits(self.update_matrices):
+            for name, val in values.items():
+                if val is not None:
+                    setattr(self, name, val)
+
+    def update_from_dict(self, cdict):
+        """Restore the camera from a snapshot produced by dict().
+
+        The orientation entry is dropped: it is derived from position, focus
+        and up, and update re-derives it.
+        """
+        cdict = {ky: val for ky, val in cdict.items() if ky != "orientation"}
+        self.update(**cdict)

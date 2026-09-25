@@ -250,7 +250,7 @@ def test_camera_dict_update(fake_amr_rc):
     assert_equal(cdict["position"], pos)
 
     fake_amr_rc.scene.camera.set_position([4.0, 4.0, 4])
-    fake_amr_rc.scene.camera.update(**cdict)
+    fake_amr_rc.scene.camera.update_from_dict(cdict)
     assert_equal(fake_amr_rc.scene.camera.position, pos)
 
 

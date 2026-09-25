@@ -107,25 +107,30 @@ def test_set_orientation_syncs_position_up_and_view(camera):
         assert np.allclose(getattr(camera, k), v), k
 
 
-def test_update_picks_the_right_rebuild(camera):
+def test_update_always_rebuilds_view(camera):
     camera.update_orientation(0.0, 0.0, 0.3, 0.2)
     q = camera.orientation.copy()
     v0 = camera.view_matrix.copy()
 
+    # projection-only change: the view is re-derived from position, focus and
+    # up, which set_orientation kept in sync with the dragged quaternion
     camera.update(fov=30.0)
-    assert np.array_equal(camera.orientation, q)
-    assert np.array_equal(camera.view_matrix, v0)
+    assert np.allclose(camera.orientation, q)
+    assert np.allclose(camera.view_matrix, v0)
+    assert camera.fov == 30.0
 
     camera.update(focus=np.array([0.6, 0.4, 0.5]), fov=35.0)
     assert not np.allclose(camera.view_matrix, v0)
-    assert not np.array_equal(camera.orientation, q)
+    assert not np.allclose(camera.orientation, q)
     assert camera.fov == 35.0
-
-    pos_before = camera.position.copy()
-    camera.update(orientation=q)
-    assert np.array_equal(camera.orientation, q)
-    assert not np.allclose(camera.position, pos_before)
     assert not camera.held
+
+
+def test_update_rejects_orientation_and_typos(camera):
+    with pytest.raises(TypeError):
+        camera.update(orientation=camera.orientation)
+    with pytest.raises(TypeError):
+        camera.update(postion=np.array([0.5, 0.5, 3.0]))
 
 
 def test_dict_round_trip_restores_view(camera):
@@ -137,6 +142,7 @@ def test_dict_round_trip_restores_view(camera):
     camera.update_orientation(0.0, 0.0, -0.4, 0.1)
     assert not np.allclose(v0, camera.view_matrix)
 
-    camera.update(**snapshot)
+    assert "orientation" in snapshot
+    camera.update_from_dict(snapshot)
     assert np.array_equal(camera.position, pos0)
     assert np.allclose(camera.view_matrix, v0)

@@ -58,33 +58,36 @@ class BaseCamera(traitlets.HasTraits):
 
     @contextlib.contextmanager
     def hold_traits(self, func):
-        # for some reason, hold_trait_notifications doesn't seem to work here.
-        # So, we use this to block.  We also do not want to pass the
-        # notifications once completed.
-        if not self.held:
-            self.held = True
-            func()
+        """Suppress per-trait matrix rebuilds inside the block, then call func once."""
+        if self.held:
+            yield
+            return
+        self.held = True
+        try:
+            yield
+        finally:
             self.held = False
-        yield
+        func()
 
     @traitlets.default("up")
     def _default_up(self):
         return np.array([0.0, 1.0, 0.0])
 
-    @traitlets.observe(
-        "position",
-        "focus",
-        "up",
-        "fov",
-        "near_plane",
-        "far_plane",
-        "aspect_ratio",
-        "orientation",
-    )
+    @traitlets.observe("position", "fov", "near_plane", "far_plane", "aspect_ratio")
     def compute_matrices(self, change=None):
-        """Regenerate all position, view and projection matrices of the camera."""
-        with self.hold_traits(self._compute_matrices):
-            pass
+        """Rebuild the projection matrix when a trait that feeds it changes.
+
+        The view matrix and orientation are deliberately left alone here:
+        rebuilding them from position/focus/up would clobber trackball
+        rotations applied through update_orientation. Use _update_matrices
+        to rebuild everything explicitly.
+        """
+        if self.held:
+            return
+        self._compute_matrices()
+
+    def _compute_matrices(self):
+        pass
 
     def _update_matrices(self):
         pass

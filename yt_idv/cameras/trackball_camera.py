@@ -61,18 +61,12 @@ class TrackballCamera(BaseCamera):
         self.up = rotation_matrix[1]
 
         self.view_matrix = get_lookat_matrix(self.position, self.focus, self.up)
-
-        self.projection_matrix = self.proj_func(
-            self.fov, self.aspect_ratio, self.near_plane, self.far_plane
-        )
+        self._compute_matrices()
 
     def _update_matrices(self):
         self.view_matrix = get_lookat_matrix(self.position, self.focus, self.up)
         self.orientation = rotation_matrix_to_quaternion(self.view_matrix[0:3, 0:3])
-
-        self.projection_matrix = self.proj_func(
-            self.fov, self.aspect_ratio, self.near_plane, self.far_plane
-        )
+        self._compute_matrices()
 
     def move_forward(self, move_amount):
         dpos = (self.focus - self.position) / np.linalg.norm(self.focus - self.position)
@@ -85,7 +79,9 @@ class TrackballCamera(BaseCamera):
         self.view_matrix = get_lookat_matrix(self.position, self.focus, self.up)
 
     def _compute_matrices(self):
-        pass
+        self.projection_matrix = self.proj_func(
+            self.fov, self.aspect_ratio, self.near_plane, self.far_plane
+        )
 
     def set_position(self, pos):
         self.position = pos

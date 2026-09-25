@@ -164,15 +164,16 @@ class BaseCamera(traitlets.HasTraits):
     def update(self, **kwargs):
         """Set several traits at once and rebuild whatever they affect.
 
-        If orientation is given, position and up are re-derived from it (see
-        set_orientation). Otherwise, if any of position, focus or up is given,
-        the view is rebuilt from them (see update_matrices). Traits that only
-        feed the projection matrix trigger a projection rebuild alone.
+        If any of position, focus or up is given, the view is rebuilt from them
+        and orientation is re-derived (see update_matrices), so a snapshot from
+        dict() round-trips exactly. If only orientation is given, position and
+        up are re-derived from it instead (see set_orientation). Traits that
+        only feed the projection matrix trigger a projection rebuild alone.
         """
-        if "orientation" in kwargs:
-            rebuild = lambda: self.set_orientation(self.orientation)  # noqa: E731
-        elif any(ky in kwargs for ky in ("position", "focus", "up")):
+        if any(ky in kwargs for ky in ("position", "focus", "up")):
             rebuild = self.update_matrices
+        elif "orientation" in kwargs:
+            rebuild = lambda: self.set_orientation(self.orientation)  # noqa: E731
         else:
             rebuild = self._compute_matrices
         with self.hold_traits(rebuild):

@@ -126,3 +126,17 @@ def test_update_picks_the_right_rebuild(camera):
     assert np.array_equal(camera.orientation, q)
     assert not np.allclose(camera.position, pos_before)
     assert not camera.held
+
+
+def test_dict_round_trip_restores_view(camera):
+    camera.update_orientation(0.0, 0.0, 0.3, 0.2)
+    snapshot = camera.dict()
+    v0 = camera.view_matrix.copy()
+    pos0 = camera.position.copy()
+
+    camera.update_orientation(0.0, 0.0, -0.4, 0.1)
+    assert not np.allclose(v0, camera.view_matrix)
+
+    camera.update(**snapshot)
+    assert np.array_equal(camera.position, pos0)
+    assert np.allclose(camera.view_matrix, v0)
